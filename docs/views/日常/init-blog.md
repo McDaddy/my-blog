@@ -17,13 +17,16 @@ npx @vuepress-reco/theme-cli init my-blog
 ![Alt text](../../images/1587800414757.png)
 
 2.  安装好依赖之后，使用`npm run dev`命令启动本地模式。 嗯。 零代码实现的效果还是不错的
+
 ![Alt text](../../images/1587800694139.png)
 
 3. 使用`npm run build`命令打包项目， 打包好的文件存放在public文件夹中
 4. 将项目加上git管理
+
 ![Alt text](../../images/1587800919026.png)
 
 5. 在个人GitHub上创建新的项目
+
 ![Alt text](../../images/1587801021843.png)
 使用命令将本地工程同步到GitHub
 ```

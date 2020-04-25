@@ -1,7 +1,12 @@
 module.exports = {
-  "title": "kuimo's blog",
-  "description": "kuimo's frontend blog",
+  "title": "戣蓦的小站",
+  "description": "戣蓦的前端小博客",
   "dest": "public",
+  "locales": {
+    '/': {
+      "lang": 'zh-CN'
+    }
+  },
   "head": [
     [
       "link",
@@ -37,7 +42,7 @@ module.exports = {
         "items": [
           {
             "text": "GitHub",
-            "link": "https://github.com/recoluan",
+            "link": "https://github.com/McDaddy",
             "icon": "reco-github"
           }
         ]
@@ -60,9 +65,9 @@ module.exports = {
     "sidebar": "auto",
     "lastUpdated": "Last Updated",
     "author": "kuimo",
-    "authorAvatar": "/avatar.png",
-    "record": "xxxx",
-    "startYear": "2017"
+    "authorAvatar": "/avatar.jpeg",
+    // "record": "xxxx",
+    "startYear": "2020"
   },
   "markdown": {
     "lineNumbers": true
