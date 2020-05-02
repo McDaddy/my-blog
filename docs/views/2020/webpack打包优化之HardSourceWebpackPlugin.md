@@ -64,3 +64,9 @@ new HardSourceWebpackPlugin.ExcludeModulePlugin([
 4. 默认情况下即使没有任何改动，应该每2天就会把cache强制过期，这点还没测试到
 5. 偶现错误重新build cache，百度说是sass-loader引起的，和这个plugin无关，暂时无解.
 ![JvTeVx.png](https://s1.ax1x.com/2020/05/02/JvTeVx.png)
+
+参考
+
+[玩转 webpack，使你的打包速度提升 90%](https://juejin.im/post/5e53dbbc518825494905c45f#heading-9)
+
+[五种可视化方案分析 webpack 打包性能瓶颈](https://juejin.im/post/5e39570bf265da573c0c6679#heading-9)
