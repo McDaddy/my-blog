@@ -65,8 +65,7 @@ module.exports = {
     "sidebar": "auto",
     "lastUpdated": "Last Updated",
     "author": "kuimo",
-    "authorAvatar": "/avatar.jpeg",
-    // "record": "xxxx",
+    "authorAvatar": "https://imgchr.com/i/JvIqn1",
     "startYear": "2020"
   },
   "markdown": {
