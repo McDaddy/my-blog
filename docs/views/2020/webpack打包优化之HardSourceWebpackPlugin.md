@@ -9,6 +9,8 @@ categories:
 
 由于最近一直在两个工程间切换开发，同时起两个node电脑扛不住，经常性重新编译耗时太大，这里尝试*HardSourceWebpackPlugin*，结果得到惊人结果
 
+<!-- more -->
+
 - 这是未优化时的耗时，稳定在1分10s到30s不等 测试时间的工具是`speed-measure-webpack-plugin`
 
 [![JvI1YD.png](https://s1.ax1x.com/2020/05/02/JvI1YD.png)](https://imgchr.com/i/JvI1YD)
@@ -21,7 +23,7 @@ categories:
 
 ```javascript
 const HardSourceWebpackPlugin = require('hard-source-webpack-plugin');
-    
+
 // ...
 
 new HardSourceWebpackPlugin(),
