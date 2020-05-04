@@ -1,6 +1,6 @@
-# vuepress-theme-reco-demo
+# 戣蓦的小站
 
-Blog demo for vuepress-theme-reco
+Blog created based on vuepress-theme-reco
 
 ```bash
 # 编译

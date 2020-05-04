@@ -19,8 +19,8 @@ categories:
 遇到这种情况一般都是为了清除或重置公共变量，两个策略来解决：
 
 1. 把unmount的内容移到mount中。
-
 2. 为每个组件单独设置一份属性，可以通过id区分
 
-![Alt text](../../images/life1.png)
-![Alt text](../../images/life2.png)
+![Alt text](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/life1.png)
+
+![Alt text](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/life2.png)
