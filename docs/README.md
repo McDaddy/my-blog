@@ -1,5 +1,6 @@
 ---
 home: true
+bgImage: '/IMG_8597.HEIC.JPG'
 # heroImage: /hero.png
 # heroImageStyle: {
 #   maxWidth: '600px',
