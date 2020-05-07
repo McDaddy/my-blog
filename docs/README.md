@@ -1,6 +1,6 @@
 ---
 home: true
-bgImage: '/IMG_8597.HEIC.JPG'
+bgImage: '/bgImage.jpg'
 # heroImage: /hero.png
 # heroImageStyle: {
 #   maxWidth: '600px',
@@ -11,7 +11,7 @@ bgImage: '/IMG_8597.HEIC.JPG'
 #   borderRadius: '1rem',
 # }
 bgImageStyle: {
-  height: '450px'
+  height: '400px'
 }
 isShowTitleInHome: false
 actionText: Guide
