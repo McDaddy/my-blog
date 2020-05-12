@@ -202,6 +202,7 @@ class MyPromise {
     const { status, val } = this;
     return new MyPromise((nextResolveHandler, nextRejectHandler) => {
       // 这一步是为了融合当前then的下一个接着的then
+      // 因为当前的then会返回一个Promise，如果不调用这个nextResolveHandler，那么这个Promise就永远没法被resolve或者reject，也就不能被继续then
       const unionResolveHandler = (value) => {
         if (typeof resolveHandler !== "function") {
           // 如果then的第一个参数不是function，那么就要忽略它，带着上一步的结果往下走

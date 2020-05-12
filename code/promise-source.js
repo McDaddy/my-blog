@@ -5,6 +5,7 @@ class MyPromise {
     this.resolveHandleList = [];
     this.rejectHandleList = [];
     try {
+      // 每个new Promise((resolve,reject) => {...}) 构造Promise时的resolve,reject,不是使用者定义的，而是promise自己预设的方法
       promiseHandler(this.triggerResolve, this.triggerReject);
     } catch (error) {
       this.triggerReject(error);
@@ -14,6 +15,7 @@ class MyPromise {
   triggerResolve = (value) => {
     setTimeout(() => {
       // 如果调用resolve时已经不是pending了那就返回，因为状态不能逆转
+      debugger
       if (this.status !== "pending") {
         return;
       }
@@ -53,27 +55,26 @@ class MyPromise {
   // resolveHandler, rejectHandler这两个方法return(或自然结束)或者throw error时。就是这个promise被resolve或reject的时机
   then = (resolveHandler, rejectHandler) => {
     const { status, val } = this;
-    return new MyPromise((nextResolveHandler, nextRejectHandler) => {
+    return new MyPromise((nextTriggerResolve, nextTriggerReject) => {
       // 这一步是为了融合当前then的下一个接着的then
       const unionResolveHandler = (value) => {
         if (typeof resolveHandler !== "function") {
           // 如果then的第一个参数不是function，那么就要忽略它，带着上一步的结果往下走
-          nextResolveHandler(value);
+          nextTriggerResolve(value);
         } else {
           // 否则先执行当前then的resolveHandler，拿到结果传给下一个then的resolveHandler
           const res = resolveHandler(value);
           if (res instanceof MyPromise) {
-            res.then(nextResolveHandler, nextRejectHandler);
+            res.then(nextTriggerResolve, nextTriggerReject);
           } else {
-            nextResolveHandler(res);
+            nextTriggerResolve(res);
           }
         }
       };
 
       const unionRejectHandler = (reason) => {
-        // console.log("MyPromise -> unionRejectHandler -> reason", reason)
         if (typeof rejectHandler !== "function") {
-          nextRejectHandler(reason);
+          nextTriggerReject(reason);
         } else {
           let res = null;
           try {
@@ -81,14 +82,15 @@ class MyPromise {
             res = rejectHandler(reason);
             console.log('after reject', res);
             if (res instanceof MyPromise) {
-              res.then(nextResolveHandler, nextRejectHandler);
+              res.then(nextTriggerResolve, nextTriggerReject);
             } else {
+              debugger
               console.log('resolve next', res);
-              nextResolveHandler(res);
+              nextTriggerResolve(res);
             }
           } catch (error) {
             console.log('catch ', error);
-            nextRejectHandler(error);
+            nextTriggerReject(error);
           }
         }
       };
@@ -146,9 +148,9 @@ class MyPromise {
   }
 
   static race(list) {
-    return new CustomPromise((resolve, reject) => {
+    return new MyPromise((resolve, reject) => {
       list.forEach((item) => {
-        CustomPromise.resolve(item).then(
+        MyPromise.resolve(item).then(
           (res) => {
             resolve(res);
           },
