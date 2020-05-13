@@ -6,7 +6,7 @@ tags:
  - Promise
 categories:
  - JavaScript
-
+ - 笔记
 ---
 
 ## 为什么需要Promise？
