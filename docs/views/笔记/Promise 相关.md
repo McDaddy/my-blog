@@ -307,6 +307,12 @@ class MyPromise {
       });
     });
   }
+
+	static finally(callback) {
+  	return this.then(value => MyPromise.resolve(callback()).then(() => value),   // MyPromise.resolve执行回调,并在then中return结果传递给后面的Promise
+    reason => MyPromise.resolve(callback()).then(() => { throw reason })  // reject同理
+  	)
+	}
 }
 
 // test case

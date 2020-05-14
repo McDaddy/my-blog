@@ -1,6 +1,6 @@
 ---
 title: 【笔记】- async/await 详解
-date: 2020-05-12
+date: 2020-05-13
 tags:
  - ES6
 categories:
@@ -20,6 +20,8 @@ async function t() {
   	return x + y;
 }
 ```
+
+<!-- more -->
 
 ```javascript
 function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) {

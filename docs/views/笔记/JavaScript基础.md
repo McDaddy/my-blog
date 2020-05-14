@@ -214,5 +214,13 @@ elem.addEventListener('click', function () {
 });
 elem.addEventListener('click', () => obj.show()); // obj
 
+// 5.
+const obj = {
+  a: 1,
+  next: () => {
+    console.log(this); // 此时在浏览器输出window，在node输出global {}, 箭头函数的this找的是它上一层的函数，注意是函数， 如果是对象包着它，那么它就会继续向上找函数，直到找到顶层
+  }
+}
+obj.next();
 ```
 
