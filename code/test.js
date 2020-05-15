@@ -2,4 +2,4 @@ const a = { a: 1};
 const b = { d: 1 };
 
 
-const c = { c: 'master' };
+const c = { c: 'test' };
