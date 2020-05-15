@@ -1,2 +1,2 @@
 const a = { a: 1};
-const b = { b: 1};
+const b = { e: 1};
