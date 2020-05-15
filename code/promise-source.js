@@ -1,11 +1,14 @@
+const PENDING = 'pending';
+const FULFILLED = 'fulfilled';
+const REJECTED = 'rejected';
+
 class MyPromise {
   constructor(promiseHandler) {
-    this.status = "pending";
+    this.status = PENDING;
     this.val = undefined;
     this.resolveHandleList = [];
     this.rejectHandleList = [];
     try {
-      // 每个new Promise((resolve,reject) => {...}) 构造Promise时的resolve,reject,不是使用者定义的，而是promise自己预设的方法
       promiseHandler(this.triggerResolve, this.triggerReject);
     } catch (error) {
       this.triggerReject(error);
@@ -15,94 +18,96 @@ class MyPromise {
   triggerResolve = (value) => {
     setTimeout(() => {
       // 如果调用resolve时已经不是pending了那就返回，因为状态不能逆转
-      debugger
-      if (this.status !== "pending") {
+      if (this.status !== PENDING) {
         return;
       }
-      if (value instanceof MyPromise) {
-        val.then(
-          value => {},
-          err => {}
-        )
-      } else {
-        this.status = "fulfilled";
-        this.val = value;
-        this.resolveHandleList.forEach((handler) => {
-          handler(value);
-        });
-        this.resolveHandleList = [];
-      }
+      this.status = FULFILLED;
+      this.val = value;
+      this.resolveHandleList.forEach((handler) => {
+        handler(value);
+      });
+      this.resolveHandleList = [];
     });
   };
 
   triggerReject = (error) => {
     setTimeout(() => {
-      if (this.status !== "pending") {
+      if (this.status !== PENDING) {
         return;
       }
-      this.status = "rejected";
-      // this.val = error;
-      this.rejectHandleList.forEach((handler, i) => {
+      debugger
+      this.status = REJECTED;
+      this.val = error;
+      this.rejectHandleList.forEach((handler) => {
         handler(error);
       });
       this.rejectHandleList = [];
     });
   };
 
-  // then的意义就是注册后面的handle函数 resolveHandler 是不需要return值的
+  // then的意义就是注册后面的handle函数, 不是执行, 执行是发生在上一个promise完成之后，这里只是注册
+  // resolveHandler是不需要return值的
   // 每个then接受两个参数，resolveHandler, rejectHandler
   // then永远都要返回一个promise 这一点catch也一样
   // resolveHandler, rejectHandler这两个方法return(或自然结束)或者throw error时。就是这个promise被resolve或reject的时机
   then = (resolveHandler, rejectHandler) => {
     const { status, val } = this;
-    return new MyPromise((nextTriggerResolve, nextTriggerReject) => {
+    return new MyPromise((onResolve, onReject) => {
       // 这一步是为了融合当前then的下一个接着的then
+      // 因为当前的then会返回一个Promise，如果不调用这个onResolve，那么这个Promise就永远没法被resolve或者reject，也就不能被继续then
       const unionResolveHandler = (value) => {
         if (typeof resolveHandler !== "function") {
           // 如果then的第一个参数不是function，那么就要忽略它，带着上一步的结果往下走
-          nextTriggerResolve(value);
+          onResolve(value);
         } else {
           // 否则先执行当前then的resolveHandler，拿到结果传给下一个then的resolveHandler
           const res = resolveHandler(value);
           if (res instanceof MyPromise) {
-            res.then(nextTriggerResolve, nextTriggerReject);
+            res.then(onResolve, onReject);
           } else {
-            nextTriggerResolve(res);
+            onResolve(res);
           }
         }
       };
 
       const unionRejectHandler = (reason) => {
         if (typeof rejectHandler !== "function") {
-          nextTriggerReject(reason);
+          onReject(reason);
         } else {
           let res = null;
           try {
-            console.log('before reject');
             res = rejectHandler(reason);
-            console.log('after reject', res);
             if (res instanceof MyPromise) {
-              res.then(nextTriggerResolve, nextTriggerReject);
+              res.then(onResolve, onReject);
             } else {
-              debugger
-              console.log('resolve next', res);
-              nextTriggerResolve(res);
+              onResolve(res);
             }
           } catch (error) {
             console.log('catch ', error);
-            nextTriggerReject(error);
+            onReject(error);
           }
         }
       };
 
       switch (status) {
-        case "pending": {
+        case PENDING: {
           // 注册handler
           this.resolveHandleList.push(unionResolveHandler);
           this.rejectHandleList.push(unionRejectHandler);
+          break;
         }
-        case "fulfilled": {
-          unionResolveHandler(value);
+        case FULFILLED: {
+          // 为什么这里会有fulfilled状态，是因为同一个promise可以被多次then，同理rejected
+          // 这种情况比较难模拟，第二次调then需要异步触发
+          // promise.then((v) => { console.log('resolve1', v )});
+          // setTimeout(() => {
+          //   promise.then((v) => { console.log('resolve2', v )});
+          // }, 1000);
+          unionResolveHandler(val);
+          break;
+        }
+        case REJECTED: {
+          unionRejectHandler(val);
           break;
         }
       }
@@ -121,9 +126,6 @@ class MyPromise {
   }
 
   static reject(error) {
-    // if (error instanceof MyPromise) {
-    //   return value;
-    // }
     return new MyPromise((onResolve, onReject) => onReject(error));
   }
 
@@ -148,9 +150,9 @@ class MyPromise {
   }
 
   static race(list) {
-    return new MyPromise((resolve, reject) => {
+    return new CustomPromise((resolve, reject) => {
       list.forEach((item) => {
-        MyPromise.resolve(item).then(
+        CustomPromise.resolve(item).then(
           (res) => {
             resolve(res);
           },
@@ -161,6 +163,13 @@ class MyPromise {
       });
     });
   }
+
+	finally(callback) {
+  	return this.then(
+      value => MyPromise.resolve(callback()).then(() => value),   // MyPromise.resolve执行回调,并在then中return结果传递给后面的Promise
+      reason => MyPromise.resolve(callback()).then(() => { throw reason })  // reject同理
+  	)
+	}
 }
 
 // test case
@@ -173,20 +182,24 @@ class MyPromise {
 //   console.log('reject', err);
 // })
 
-MyPromise.reject("hello world")
-  .catch((err) => {
-    console.log("reject", err);
-    return 12
-  }).then((val) => {
-    console.log("resolve", val);
-  });
+// MyPromise.reject("hello world")
+//   .catch((err) => {
+//     console.log("reject", err);
+//     return 12;
+//   }).then((val) => {
+//     console.log("resolve1", val);
+//   }).catch(() => {
+//     console.log(12993);
+//   }).finally(() => {
+//     console.log('finally');
+//   });
 
-// const promise = new MyPromise((resolve, reject) => {
-//   setTimeout(() => {
-//     console.log("promise resolved");
-//     resolve(123);
-//   }, 1000);
-// });
+const promise = new MyPromise((resolve, reject) => {
+  setTimeout(() => {
+    console.log("promise resolved");
+    resolve('kuimo');
+  }, 1000);
+});
 
 // promise
 //   .then((val) => {
@@ -200,6 +213,7 @@ MyPromise.reject("hello world")
 //     console.log("error", error);
 //   });
 
-// MyPromise.resolve('hello world').then(val => {
-//   console.log('resolve', val);
-// })
+promise.then((v) => { console.log('resolve1', v )});
+setTimeout(() => {
+  promise.then((v) => { console.log('resolve2', v )});
+}, 1110);

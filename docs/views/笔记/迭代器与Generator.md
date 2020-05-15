@@ -21,6 +21,8 @@ categories:
 for...of / ... / Array.from 都是使用了迭代器协议，所以才能迭代出内容
 [] / Set / Map / generators 都是实现了Iterators
 
+<!-- more -->
+
 ```javascript
 const array = [1, 2, 3];
 // 取出array的迭代器
