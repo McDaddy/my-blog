@@ -1,6 +1,7 @@
 ---
 title: 可交互CLI实战
 date: 2020-05-24
+sidebar: false
 tags:
  - Node
 categories:
@@ -18,6 +19,7 @@ categories:
 3. 通过`require('../package.json’)`可以直接拿到当前项目包括版本在内的全部信息
 4. `child_process` 是node自带的执行子线程的API，这次用到的`execSync`就是同步执行，当然它也有异步执行API
 5. 在`execSync`的第二个参数option需要加入`{ stdio: 'inherit’ }`是为了将执行命令中的全部输出流都原封不动得传递给父线程，也就是主线程，否则我们是没法看到子线程的log的
+6. `process.platform`可以得到所在操作系统的名字，如果是darwin那就是Mac系统。`osascript`是苹果平台独有的脚本，使用前需要判断平台类型
 
 以下就是具体实现的代码
 
@@ -40,6 +42,7 @@ const GET_SHA_CMD = 'git rev-parse --short HEAD';
 const CLEAR_CMD = 'rm -rf ./.happypack && rm -rf ./.terser-cache && rm -rf ./public/*';
 const BUILD_DICE = 'npm run build_dice';
 const BUILD_ALL = 'npm run build';
+const EXIT_DOCKER_CMD = 'osascript -e \'quit app "Docker"\'';
 
 const getCurrentBranch = async () => {
   const branch = await execSync(GET_BRANCH_CMD);
@@ -106,6 +109,7 @@ const bundlePackage = async () => {
     const image = `registry.cn-hangzhou.aliyuncs.com/terminus/dice-ui:${version}`;
     execSync(`docker build -f local_Dockerfile -t ${image} . || exit 1`, { stdio: 'inherit' });
     execSync(`docker push ${image} || exit 1`, { stdio: 'inherit' });
+    process.platform === 'darwin' && execSync(EXIT_DOCKER_CMD);
   } catch (error) {
     console.log('打包中断退出, 由于:', error.message);
   }

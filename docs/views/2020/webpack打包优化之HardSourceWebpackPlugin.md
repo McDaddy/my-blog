@@ -5,6 +5,7 @@ tags:
  - webpack
 categories:
  - 前端工程化
+sidebar: false
 ---
 
 由于最近一直在两个工程间切换开发，同时起两个node电脑扛不住，经常性重新编译耗时太大，这里尝试*HardSourceWebpackPlugin*，结果得到惊人结果

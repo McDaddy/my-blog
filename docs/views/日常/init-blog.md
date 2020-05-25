@@ -5,6 +5,7 @@ tags:
  - blog
 categories:
  -  vuepress
+sidebar: false
 ---
 
 1. 在本地创建项目，参考[VuePress模板 vuepress-theme-reco](https://vuepress-theme-reco.recoluan.com/)
