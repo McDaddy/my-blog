@@ -63,7 +63,7 @@ module.exports = {
     "search": true,
     "searchMaxSuggestions": 10,
     "sidebar": "auto",
-    "lastUpdated": "Last Updated",
+    // "lastUpdated": "Last Updated",
     "author": "kuimo",
     "authorAvatar": "/avatar.jpg",
     "startYear": "2020"
