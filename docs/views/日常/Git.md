@@ -11,7 +11,7 @@ Git一直用了很多年了，但是大多数情况只是使用图形化操作�
 
 <!-- more -->
 
-## Git log
+## git log
 
 git log有很多命令参数，主要有
 
@@ -31,3 +31,96 @@ git log --pretty=format:'' # 自定义输出内容
 > HEAD -> master 表示当前本地master分支指向的commit
 > origin/master 表示远程master分支目前指向的commit
 > feature/test 表示本地feature/test分支的指向
+
+## Git 文件大小写问题
+
+Git默认文件名和文件夹名是不区分大小写的，如果`README.md` —> `readme.md`是不会提示有变化的， 需要主动设置config
+
+```shell
+git config core.ignorecase false
+```
+
+但是如果直接改了大小写然后push， 结果就是远程git上会有两份同名大小写的文件。这个就真的很头疼。 百度到这个分步改名法。实测有效
+
+ ```shell
+$ git mv ./Docs ./docs.bak
+$ git add .
+$ git commit -m "改名（第 1/2 步）"
+
+$ git mv ./docs.bak/ ./docs
+$ git add .
+$ git commit -m "改名（第 2/2 步）"
+
+$ git push
+ ```
+
+## git log vs git reflog
+
+`git log`是显示当前分支的历史记录的，但如果有reset操作的话是看不到的。
+
+`git reflog` 可以看到**本地**所有的历史记录，即使是reset， 此外reflog的内容更多，包括切换分支等操作都会被记录下来
+
+场景1：在branch A上commit代码，然后切到branch B要cherry pick, 打开git log是看不到branch A的commit的，通过git reflog就可以看到。
+
+场景2： 分支被reset回滚了，看git log是看不到那些已经被回滚的commit的，这时候只能git reflog来查看完整的commit记录
+
+## git pull
+
+```shell
+git pull = git fetch + git merge
+git pull --rebase = git fetch + git rebase
+```
+
+
+
+## 查找commit来自哪个分支
+
+```shell
+git branch --contains <commit-id>
+```
+
+
+
+## 撤回本地已经commit但是没有push的提交
+
+```shell
+# 找到要回滚的地方，一般就是HEAD~1
+git reflog 
+# --soft 结束之后已经commit的代码会回到stage
+# --hard 结束之后已经commit的代码会消失
+git reset --soft [<commit-id>/HEAD~n>]
+```
+
+
+
+## 修改分支名
+
+```shell
+git branch -m <oldbranch> <newbranch>
+```
+
+
+
+## 删除分支
+
+```shell
+// delete branch locally
+git branch -d localBranchName
+
+// delete branch remotely
+git push origin --delete remoteBranchName
+git push prod --delete feature/remove-ws
+```
+
+## 同步远程github仓库代码
+
+```shell
+git fetch upstream && git reset --hard upstream/master && git push -f
+```
+
+## 强制刷新远程分支列表
+
+```shell
+git remote update prod --prune
+```
+
