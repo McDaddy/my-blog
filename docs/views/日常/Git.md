@@ -58,7 +58,7 @@ $ git push
 
 `git log`是显示当前分支的历史记录的，但如果有reset操作的话是看不到的。
 
-`git reflog` 可以看到**本地**所有的历史记录，即使是reset， 此外reflog的内容更多，包括切换分支等操作都会被记录下来
+`git reflog` 可以看到**本地**所有对**HEAD**操作的历史记录，即使是reset， 此外reflog的内容更多，包括切换分支等操作都会被记录下来，但是那些不影响HEAD的操作就不会被记录，比如stash操作
 
 场景1：在branch A上commit代码，然后切到branch B要cherry pick, 打开git log是看不到branch A的commit的，通过git reflog就可以看到。
 
@@ -97,6 +97,13 @@ git reset --soft [<commit-id>/HEAD~n>]
 
 ```shell
 git branch -m <oldbranch> <newbranch>
+```
+
+## 清除本地untracked的files
+
+```shell
+git clean -n # 列出所有要移除的files
+git clean -f # 移除
 ```
 
 

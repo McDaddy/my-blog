@@ -54,7 +54,7 @@ const onClick = () => {
 合成click
 ```
 
-说明原生的事件是在合成事件前执行的，原因是原生的事件是在**目标阶段**执行的，也就是当捕获结束在冒泡之前（假设元素就是事件的currentTarget）的执行阶段，而合成事件是绑定在document的，所以比如需要冒泡到顶部才会执行。如果把`e.stopPropagation()`放开，得到的结果那就只有原生click被执行。
+说明原生的事件是在合成事件前执行的，原因是原生的事件是在**目标阶段**执行的，也就是当捕获结束、冒泡之前（假设元素就是事件的currentTarget）的执行阶段，而合成事件是绑定在document的，所以比如需要冒泡到顶部才会执行。如果把`e.stopPropagation()`放开，得到的结果那就只有原生click被执行。
 
 为了验证合成事件是注册在document， 我通过dev tool把普通按钮的document click绑定remove了。 结果就是点击无效了。反之如果只保留document的事件移除剩下的事件点击依然有效。
 
@@ -77,7 +77,7 @@ const onClick = () => {
 
 大致分为两步
 
-- 事件注册 - 组件挂载阶段，根据组件内的声明的事件类型-onclick，onchange 等，给 document 上添加事件 addEventListener，并指定统一的事件处理程序 `dispatchEvent`。
+- 事件注册 - 组件挂载阶段，根据组件内的声明的事件类型 onclick，onchange 等，给 document 上添加事件 addEventListener，并指定统一的事件处理程序 `dispatchEvent`。
 
 - 事件存储 - 就是把 react 组件内的所有事件统一的存放到一个对象里，缓存起来，为了在触发事件的时候可以查找到对应的方法去执行。
 

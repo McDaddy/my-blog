@@ -79,16 +79,12 @@ promise 的 then ⽅法接受两个参数： promise.then(onFulfilled, onRejecte
 
 ```javascript
 var promise1 = new Promise((resolve, reject) => {reject();});
-promise1
- .then(null, function() {
-return 123;
-})
-.then(null, null) .then(null, null) .then(
-() => {
-console.log('promise2 已完成');
-},
-() => {
-console.log('promise2 已拒绝');
+promise1.then(null, function() {
+	return 123;
+}).then(null, null).then(null, null).then(() => {
+	console.log('promise2 已完成');
+},() => {
+	console.log('promise2 已拒绝');
 });
 
 // promise2 已完成
@@ -203,6 +199,7 @@ class MyPromise {
       // 这一步是为了融合当前then的下一个接着的then
       // 因为当前的then会返回一个Promise，如果不调用这个onResolve，那么这个Promise就永远没法被resolve或者reject，也就不能被继续then
       const unionResolveHandler = (value) => {
+        // 这里隐式得考虑了resolveHandler没有传的情况，这种情况相当于catch或者promise.then(null, null)，如果promise的返回不是异常那么就会直接resolve掉
         if (typeof resolveHandler !== "function") {
           // 如果then的第一个参数不是function，那么就要忽略它，带着上一步的结果往下走
           onResolve(value);
@@ -297,9 +294,9 @@ class MyPromise {
   }
 
   static race(list) {
-    return new CustomPromise((resolve, reject) => {
+    return new MyPromise((resolve, reject) => {
       list.forEach((item) => {
-        CustomPromise.resolve(item).then(
+        MyPromise.resolve(item).then(
           (res) => {
             resolve(res);
           },

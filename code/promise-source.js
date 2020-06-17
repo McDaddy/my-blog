@@ -56,6 +56,7 @@ class MyPromise {
       // 这一步是为了融合当前then的下一个接着的then
       // 因为当前的then会返回一个Promise，如果不调用这个onResolve，那么这个Promise就永远没法被resolve或者reject，也就不能被继续then
       const unionResolveHandler = (value) => {
+        // 这里隐式得考虑了resolveHandler没有传的情况，这种情况相当于catch或者promise.then(null, null)，如果promise的返回不是异常那么就会直接resolve掉
         if (typeof resolveHandler !== "function") {
           // 如果then的第一个参数不是function，那么就要忽略它，带着上一步的结果往下走
           onResolve(value);
@@ -150,9 +151,9 @@ class MyPromise {
   }
 
   static race(list) {
-    return new CustomPromise((resolve, reject) => {
+    return new MyPromise((resolve, reject) => {
       list.forEach((item) => {
-        CustomPromise.resolve(item).then(
+        MyPromise.resolve(item).then(
           (res) => {
             resolve(res);
           },
@@ -194,12 +195,12 @@ class MyPromise {
 //     console.log('finally');
 //   });
 
-const promise = new MyPromise((resolve, reject) => {
-  setTimeout(() => {
-    console.log("promise resolved");
-    resolve('kuimo');
-  }, 1000);
-});
+// const promise = new MyPromise((resolve, reject) => {
+//   setTimeout(() => {
+//     console.log("promise resolved");
+//     resolve('kuimo');
+//   }, 1000);
+// });
 
 // promise
 //   .then((val) => {
@@ -213,7 +214,12 @@ const promise = new MyPromise((resolve, reject) => {
 //     console.log("error", error);
 //   });
 
-promise.then((v) => { console.log('resolve1', v )});
-setTimeout(() => {
-  promise.then((v) => { console.log('resolve2', v )});
-}, 1110);
+// promise.then((v) => { console.log('resolve1', v )});
+// setTimeout(() => {
+//   promise.then((v) => { console.log('resolve2', v )});
+// }, 1110);
+
+MyPromise.resolve(123).catch((e) => { console.log('e', e); }).then((v) => {
+  console.log('value', v);
+  throw new Error('eee')
+})
