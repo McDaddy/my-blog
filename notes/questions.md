@@ -53,7 +53,7 @@
 
 - [ ] 前端工程化
 
-  - [ ]  用过typescript？ unknown和any区别
+  - [ ]  用过typescript？ unknown和any区别 never
   - [ ]  webpack 编译打包优化
   - [ ] 页面性能优化
   - [ ]  异步加载的原理是什么？

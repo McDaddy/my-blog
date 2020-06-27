@@ -131,3 +131,11 @@ git fetch upstream && git reset --hard upstream/master && git push -f
 git remote update prod --prune
 ```
 
+## 多次rebase主分支时，总是遇到要resolve相同冲突的情况
+
+通过配置rerere， 它就会记住同一个冲突的处理方式
+
+```shell
+git config --global rerere.enabled 1
+```
+

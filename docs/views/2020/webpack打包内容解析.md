@@ -2,7 +2,7 @@
 title: Webpack打包内容解析
 date: 2020-06-16
 tags:
- - Webpack
+ - webpack
 categories:
  - 工具
 ---
@@ -476,26 +476,42 @@ __webpack_require__.e(/*! import() */ 0).then(__webpack_require__.bind(null, /*!
 ## 回答问题
 
 1. Babel-loader编译完成是CommonJS，不编译的话是ESModule，而浏览器不会识别CommonJS，也可能不支持ESModule，最终是如何让浏览器支持模块化的？
+
    这里最终引入pageA的utility1模块，是一个相当于用\__webpack_require__引入的具体模块对象，这就有点像在浏览器端实现了一套CommonJS的规范，所以可以直接使用
 
-   
 
-   <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200616190334070.png" alt="image-20200616190334070" style="zoom:80%;" />
 
-    ```javascript
-      // 在最终导出的pageA中所引用的utility1.js在浏览器环境下实际就是这个实现
-      var _utility1__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./utility1 */ \"./utility1.js\");
-    ```
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200616190334070.png" alt="image-20200616190334070" style="zoom:80%;" />
 
-2. import了模块，但是实际代码没有调用会不会被打包进去？
+ ```javascript
+   // 在最终导出的pageA中所引用的utility1.js在浏览器环境下实际就是这个实现
+   var _utility1__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./utility1 */ \"./utility1.js\");
+ ```
+
+1. import了模块，但是实际代码没有调用会不会被打包进去？
 
    在实际打包中，即使没有使用，但是import关键字会把引入的模块纳入到chunk中，所以代码依然会被打包
 
-3. require和import是不是可以混写？为什么
+2. require和import是不是可以混写？为什么
+
    可以混写，因为编译完之后都是CommonJS
 
 4. 如何实现异步加载模块？
+
    jsonp
 
 5. 加载过的模块如何做到不重复加载？
+
    因为有chunk的缓存
+
+
+
+## 总结
+
+最后总结一下webpack加载模块的流程
+
+1. 通过`html-webpack-plugin`会在打包完成后把所有entry chunk和要同步加载的chunk都放在script标签中
+2. 所有的js文件load完毕，结束初始化，此时`window.webpackJsonp`已经被所有同步加载的chunk填上了内容，此时只是所有js文件被载入但没有开始模块的加载
+3. 运行entry chunk的主流程代码，遍历所有`window.webpackJsonp`中的chunk， 用`webpackJsonpCallback`来接受所有非entry chunk的内容，然后加入缓存
+4. 遍历完成后，entry chunk通过`checkDeferredModules`检查一下是否都加载成功，然后把moduleId传给`__webpack_require__`, 然后在其中递归调用`__webpack_require__`，使得当前module eval中的所有依赖模块都被加载，最后返回成一个模块对象
+5. 如果有动态加载，有`requireEnsure`的实现，用jsonp的方式异步获取chunk然后以promise的形式返回给父模块

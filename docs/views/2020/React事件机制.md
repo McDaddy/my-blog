@@ -124,10 +124,36 @@ const onClick = () => {
 
 
 
+## 事件的异步处理
+
+因为react用的是合成事件，为了节约内存都会在事件回调结束之后销毁这个事件，如果想要异步还能访问这个事件，需要调用`persist`接口。[Event Pooling](https://reactjs.org/docs/events.html#event-pooling)
+
+```react
+export default () => {
+  const onClick = e => {
+    console.log(e.target.innerText);
+    // 必须在这里用persist，否则下面的异步代码就会报错
+    e.persist();
+    setTimeout(() => {
+      console.log("inner text in async", e.target.innerText);
+    }, 300);
+  };
+  return (
+    <>
+      <div>react的event，如果在异步中访问会有问题</div>
+      <Button onClick={onClick}>click me</Button>
+    </>
+  );
+};
+```
+
+[在线编辑](https://codesandbox.io/s/react-experience-hbh7h?file=/src/event-async.tsx)
+
 ## 意义
 
 1. 解决IE的兼容问题，抹平浏览器的行为差异
 2. 减少内存消耗，提升性能，一种事件只在document上注册一次
+3. react的for循环渲染组件，不需要做事件代理，因为事件代理的两个优点（1. 节约内存 2. 动态对增删节点自动添加事件）React都做了
 
 ## 参考
 
