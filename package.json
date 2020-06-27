@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vuepress dev docs",
     "build": "vuepress build docs",
+    "release": "node ./local-release.js"
   },
   "devDependencies": {
     "express": "^4.17.1",

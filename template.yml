@@ -10,7 +10,7 @@ Resources:
       Properties:
         Handler: index.handler
         Runtime: custom
-        CodeUri: ./
+        CodeUri: ./express-test
         MemorySize: 1024
         InstanceConcurrency: 5
         Timeout: 120
