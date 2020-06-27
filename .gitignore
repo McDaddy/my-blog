@@ -1,2 +1,5 @@
 node_modules/
 /public
+.fun/*
+/express-test/node_modules
+/express-test/public
