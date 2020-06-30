@@ -139,3 +139,18 @@ git remote update prod --prune
 git config --global rerere.enabled 1
 ```
 
+## 查看HEAD位置
+
+```shell
+cat .git/HEAD
+git symbolic-ref HEAD
+```
+
+## 移动Branch到指定的commit & 移动HEAD
+
+```shell
+git branch -f master commit-sha
+git checkout HEAD^ # 往后移动一个commit
+git checkout HEAD~4 # 往后移动4个commit
+```
+
