@@ -102,6 +102,8 @@ npm publish 发布
 npm info 包名 查看包状态 
 npm owner ls 查看包维护者 
 npm owner add zhangxj 添加包维护者
+# 如果要发布带scope的包需要在首次发布时加入--access public
+npm publish --access public # publish @kuimo/test-app
 ```
 
 
