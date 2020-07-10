@@ -81,17 +81,31 @@ categories:
 
 <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200708112006005.png" alt="image-20200708112006005" style="zoom:80%;" />
 
-9. `flex-basis`,表示设置flex-grow和flex-shrink之前，item实际的宽度，默认是**auto**，也就是根据item的width或内容决定，设置flex-basis相当于是设了item的宽度，此时设item的width是无效的。当flex-basis设为**0**时，item上的宽度完全无效，item的实际宽度取决于内容的实际宽度（前提是没有overflow），第二flex-grow是不是0，如果是0那就是内容的宽度，不是的话在有剩余空间的情况下由剩余空间分配决定。
+9. `flex-basis`,表示设置flex-grow和flex-shrink之前，item实际的宽度，默认是**auto**，也就是根据item的width或内容决定
+
+   1. 当有剩余空间时，设置flex-basis，with不起作用
+      <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200709184937503.png" alt="image-20200709184937503" style="zoom:80%;" />
+
+   2. 当没有剩余空间时，设置flex-basis，with不起作用，item会随比例缩小，7比其他的宽一些是因为它是150，别的是100，同比例缩小
+      <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200709185104038.png" alt="image-20200709185104038" style="zoom:80%;" />
+
+   3. 当flex-basis设为**0**时，item上的宽度完全无效，item的实际宽度取决于内容的实际宽度（前提是没有overflow），第二flex-grow是不是0，如果是0那就是内容的宽度，不是的话在有剩余空间的情况下由剩余空间分配决定。
 
 <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200708140000658.png" alt="image-20200708140000658" style="zoom:80%;" />
 
 9. `flex`有4种值, 他的组合顺序是`flex-grow`、 `flex-shrink`和 `flex-basis`
+
    1. initial: 即默认值相当于 flex: 0 1 auto
    2. auto: item可以按需增长缩小 flex: 1 1 auto
    3. none: 固定item flex: 0 0 auto
    4. 数字：设置flex-basis为0， 比如1，相当于flex: 1 1 0。<u>**注意**</u>  在设数字的情况下，item本身的width是无效的。 在没有剩余空间的情况下，如果内容无法撑开的话这个item设了1反而会被压扁
 
+   
+
 <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200708140744370.png" alt="image-20200708140744370" style="zoom:80%;" />
 
 [CSS Flexbox 可视化手册](https://zhuanlan.zhihu.com/p/56046851?edition=yidianzixun&utm_source=yidianzixun&yidian_docid=0LDQZWhi&yidian_s=&yidian_appid=oppobrowser2)
 
+## line-height
+
+`line-height` 1.8什么意思？ 1.8不带单位意思就是1.8em，也等同于180%， 同时lineHeight是可以继承的，如果子元素不设lineHeight而继承父元素的。那么1.8等于子元素自己当前字体的1.8倍，1.8em时等同于父元素的lineHeight计算值。所以尽量不要带em单位。 normalize.css设置line-height默认为1.15，当字体line-height的normal大于1.15就会存在文字显示不全的问题
