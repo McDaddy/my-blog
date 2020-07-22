@@ -3,31 +3,31 @@
 
 - [ ] HTML基础
   - [x] H5的标签语义化
-  - [ ] Load 和 DOMContentLoaded 区别
+  - [x] Load 和 DOMContentLoaded 区别
 - [ ] JS基础
   - [ ] ==的隐式转换
   - [ ]  JS中数据类型的判断 typeof、 instanceof、 constructor、Object.prototype.toString.call()
   - [x] 闭包，作用，缺点？
-  - [ ] Promise基础
-  - [ ] const var的区别， 暂时性死区
-  - [ ] this指向 call apply
+  - [x] Promise基础
+  - [x] const var的区别， 暂时性死区
+  - [x] this指向 call apply
   - [ ] 列举数组的方法 splice reduce unshift
   - [ ] 事件循环
-  - [ ] 事件委托 stopPropogation
+  - [x] 事件委托 stopPropogation
   - [ ] 模块化规范
 
 - [ ] CSS基础
-  - [ ] Flex布局
-  - [ ] Flex：1是什么意思
+  - [x] Flex布局
+  - [x] Flex：1是什么意思
 - [ ] 框架
   - [ ] MVVM是什么
-  - [ ] 什么是前端工程化
+  - [x] 什么是前端工程化
   - [ ] 什么是函数式编程， 副作用？
   - [ ] 高阶函数，hook是什么？
-  - [ ] 跨域是什么，为什么需要跨域
-  - [ ] Node了解
+  - [x] 跨域是什么，为什么需要跨域
+  - [x] Node了解
 
 - [ ] 综合
   - [ ] 为什么三次握手
-  - [ ] HTTPs为什么安全
+  - [x] HTTPs为什么安全
   - [ ] 如何优化页面性能

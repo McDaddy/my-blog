@@ -76,6 +76,7 @@ promise 的 then ⽅法接受两个参数： promise.then(onFulfilled, onRejecte
   - 如果 onFulfilled 或者 onRejected 抛出⼀个异常 e ，则 promise2 必须拒绝执⾏，并返回拒因 e
   - 如果 onFulfilled 不是函数（非函数忽略）且 promise1 状态变为已完成， promise2 必须成功执⾏并返回相同的值
   - 如果 onRejected 不是函数（非函数忽略）且 promise1 状态变为已拒绝， promise2 必须执⾏拒绝回调并返回相同的据因
+- finally 方法不能像then一样直接拿到上一步的结果value，而是直接执行Callback然后把前面的值作为promise返回
 
 ```javascript
 var promise1 = new Promise((resolve, reject) => {reject();});

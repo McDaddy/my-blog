@@ -104,7 +104,14 @@ npm owner ls 查看包维护者
 npm owner add zhangxj 添加包维护者
 # 如果要发布带scope的包需要在首次发布时加入--access public
 npm publish --access public # publish @kuimo/test-app
+
+npm link #在module模块的package.json目录下执行，可能将这个模块链到全局
+npm link @terminus/dice-cdp #在宿主上执行，将刚才链到全局的包又链到了自己的node_modules，这样就可以直接在module上直接修改代码来调试，而不需要在node_modules里面改代码，容易丢失编辑的代码
 ```
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200713154052351.png" alt="image-20200713154052351"  />![image-20200713154428365](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200713154428365.png)
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200713154052351.png" alt="image-20200713154052351"  />![image-20200713154428365](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200713154428365.png)
 
 
 
