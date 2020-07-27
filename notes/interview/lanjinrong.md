@@ -6,21 +6,21 @@
   - [ ] Load 和 DOMContentLoaded 区别
 - [ ] JS基础
   - [ ] ==的隐式转换
-  - [ ]  JS中数据类型的判断 typeof、 instanceof、 constructor、Object.prototype.toString.call()
+  - [ ] JS中数据类型的判断 typeof、 instanceof、 constructor、Object.prototype.toString.call()
   - [ ] 闭包，作用，缺点？
   - [ ] Promise基础
   - [ ] const var的区别， 暂时性死区
-  - [ ] this指向 call apply
+  - [x] this指向 call apply
   - [ ] 列举数组的方法 splice reduce unshift
   - [ ] 事件循环
   - [ ] 事件委托 stopPropogation
-  - [ ] 模块化规范
+  - [x] 模块化规范
 
 - [ ] CSS基础
-  - [ ] Flex布局
-  - [ ] Flex：1是什么意思
+  - [x] Flex布局
+  - [x] Flex：1是什么意思
 - [ ] 框架
-  - [ ] MVVM是什么
+  - [x] MVVM是什么
   - [ ] 什么是前端工程化
   - [ ] 什么是函数式编程， 副作用？
   - [ ] 高阶函数，hook是什么？
