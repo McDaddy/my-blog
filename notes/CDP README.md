@@ -185,12 +185,79 @@ app: src目录
 ### 项目开发流程（参考）
 
 1. services中添加接口
-
 2. store中添加实现
-
 3. index.js添加页面路由
-
 4. components中添加组件
+
+
+
+### 国际化
+
+所有开发的新功能都要求全面国际化。具体步骤：
+
+1. 将需要国际化的中文用i18n.d包裹起来
+
+```html
+<Select
+  showSearch
+  placeholder={i18n.d('请输入关键字')}
+  showArrow={false}
+  onChange={handleSearchChange}
+>
+```
+
+2. 跑 npm run extract， 此时temp-zh-words.json就会将待翻译的语句抽取出来
+3. 跑 npm run translate， 通过谷歌翻译自动翻译抽取出来的中文， 翻译结束后在temp-zh-words.json中仔细检查翻译是否符合预期
+4. 再次跑 npm run extract， 此时会自动将翻译好的英文回填到原来的位置，且将.d改为.t
+
+```html
+<Select
+  showSearch
+  placeholder={i18n.t('please enter key words')}
+  showArrow={false}
+  onChange={handleSearchChange}
+>
+```
+
+5. 在翻译出来的英文前加上namespace，一般为`dpCommon`，如果是非常常用的词可以不加
+
+```html
+<Select
+  showSearch
+  placeholder={i18n.t('dpCommon:please enter key words')}
+  showArrow={false}
+  onChange={handleSearchChange}
+>
+```
+
+6. 跑 npm run locale，会自动将翻译好的内容集合到zh.json和en.json。记得检查有漏翻的情况
+7. 恢复temp-zh-words.json为空文件
+
+
+
+### Service层的书写
+
+service的书写以`app/cdp/services/intelligent-recommendation.ts`为范本。 以配置化的形式来配置api。注意api名以驼峰命名并且以http方法开头
+
+
+
+### 代码规范
+
+- Node 版本统一12.x
+- 统一要求两个vscode插件
+  - eslint提示代码问题
+  - Code Spell Checker 防止拼写错误
+  - vscode 设置save时自动按照lint format的功能
+- 组件在路由文件的导出统一用默认导出`getComp: cb => cb(import('./pages/subject-domain'))`，不用具名导出。
+- Git 分支当开发阶段统一命名`feature/xxxx`，提测以后修复bug统一用`hotfix/xxxx`
+- 因为是个库，所以所有的代码引用都使用相对路径
+- **全链路覆盖TS**，所有新开发的代码都要严格使用ts，除非特殊情况不用any
+- 尽量使用公共的scss mixin，我们已经预定义了各种公用css样式，尽量指定className来实现样式
+- 遇到各种组件先看看项目里有没有类似的实现，如果是个通用的是不是可以抽成公共组件
+- 保证提交的代码是eslint no warning no error的
+- 遇到i18n会重复的情况，尽量抽取到公共文件中，避免重复翻译
+- 尽量使用async/await来替代promise的链式写法
+- 非页面根的组件尽量用React.memo包一下
 
 
 

@@ -131,6 +131,14 @@ git fetch upstream && git reset --hard upstream/master && git push -f
 git remote update prod --prune
 ```
 
+## 查看远程源列表
+
+```shell
+git remote -v
+```
+
+
+
 ## 多次rebase主分支时，总是遇到要resolve相同冲突的情况
 
 通过配置rerere， 它就会记住同一个冲突的处理方式
@@ -138,6 +146,19 @@ git remote update prod --prune
 ```shell
 git config --global rerere.enabled 1
 ```
+
+
+
+### 合并多个commit
+
+```shell
+git rebase -i HEAD~2 // 合并最近两个commit
+git rebase -i develop // 合并从develop到现在所有的commit
+
+// 会出现编辑框，只保留一个commit，剩下的都标成s即squash
+```
+
+
 
 ## 查看HEAD位置
 

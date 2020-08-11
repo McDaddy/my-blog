@@ -12,6 +12,7 @@
   - [ ] e.target和e.currentTarget的区别
   - [ ] 事件冒泡、事件捕获的区别？事件委托是什么？什么情况下适合？
   - [ ] 重绘和回流的区别？
+  - [ ] requestAnimationFrame与requestIdleCallback
   
 - [ ]  JS基础
   
