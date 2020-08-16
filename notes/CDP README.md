@@ -232,6 +232,7 @@ app: src目录
 
 6. 跑 npm run locale，会自动将翻译好的内容集合到zh.json和en.json。记得检查有漏翻的情况
 7. 恢复temp-zh-words.json为空文件
+8. 遇到特别长的句子，用一个短的字符串作为key
 
 
 

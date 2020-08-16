@@ -1,6 +1,6 @@
 ---
 title: 【笔记】- 微前端初探 Single-SPA
-date: 2020-05-07
+date: 2020-08-11
 tags:
  - 微前端
 categories:
@@ -59,6 +59,8 @@ flattenFnArray([
 ```
 
 用一个`reduce`方法，用Promise.resolve()产生一个promise作为初始值。然后遍历数组，每次都将前面的结果promise.then(() => 新的函数)，然后直接返回。这样就做到了一个链式的调用。
+
+<u>注意</u> 这个reduce中的p不能then完了去 return这p， 此时返回的是原来的promise而不是加了then的promise
 
 
 
