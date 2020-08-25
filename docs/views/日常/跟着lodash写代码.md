@@ -108,3 +108,12 @@ function isEmpty(value) {
 module.exports = isEmpty;
 ```
 
+
+
+> TODO
+>
+> isEqual
+>
+> flatMap
+>
+> Remove

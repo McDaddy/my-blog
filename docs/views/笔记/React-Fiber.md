@@ -115,3 +115,12 @@ window.requestIdleCallback = function (callback) {
 - 核心在于postMessage相当于添加了一个宏任务，当下不会立即执行，而会到了主线程和所有微任务结束之后得到执行。
 - 在`requestAnimationFrame`定义好，这个帧结束的时间
 - 在`onmessage`中判断是否还有空余时间，然后把timeRemaining传给callback
+
+### Fiber的执行阶段
+
+分为两个阶段，协调reconcilidation和提交阶段commit
+
+- 协调阶段：可以认为是diff阶段，这个阶段是可以中断的，在这个阶段会找出所有节点的变更（新增、修改、删除）等。这些被成为副作用
+- 提交阶段：必须同步不能打断，即将上个阶段完成的副作用一次性执行。
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200816233304966.png" alt="image-20200816233304966" style="zoom:80%;" />
