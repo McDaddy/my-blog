@@ -62,7 +62,7 @@ const customRequire = function(inputPath) {
     const myModule = {
         exports: {}
     };
-  	// 类型eval和new Function，将上面的函数字符串转化成真的函数对象，此处script的typeof是object
+  	// 类似eval和new Function，将上面的函数字符串转化成真的函数对象，此处script的typeof是object
     const script = new vm.Script(moduleStr, { filename: 'index.js'})
     // 这里得到的result是一个真正的可执行的函数
     const result = script.runInThisContext();
@@ -75,3 +75,16 @@ global.customRequire = customRequire;
 ```
 
 从上面的实现可以解释为什么`module.exports = xxx`和`exports.xx = xx`都是合理的。而`exports = xxx`是不合规的。因为把exports直接赋给一个值就等于把exports和module之间的引用关系给切断了。
+
+## path.resolve vs join
+
+`path.resolve`永远返回一个绝对路径， 只从最后一个`/`开始拼接。 `path.join`只是纯粹的拼接路径，会自动整理`/`
+
+```javascript
+path.join('/a', '/b') // Outputs '/a/b'
+path.resolve('/a', '/b') // Outputs '/b'
+path.resolve('/a', '/b', '/c');  // /c
+path.join('/a', '/b', '/c');   //   /a/b/c
+path.join('a', 'b', 'c');      //   /a/b/c
+```
+
