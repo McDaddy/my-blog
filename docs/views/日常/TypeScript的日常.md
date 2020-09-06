@@ -122,5 +122,85 @@ Object.keys(obj).forEach((key) => {
 });
 ```
 
+## 枚举和常量枚举，有什么区别？
 
+区别就是带上了const 那么在编译过后就会被移除， 而不带const就不会
+
+```typescript
+const enum Work {
+    A = 'A',
+    B = "b",
+}
+
+const obj = Work.A
+console.log(obj);
+
+// 编译结果
+"use strict";
+var Work;
+(function (Work) {
+    Work["A"] = "A";
+    Work["B"] = "b";
+})(Work || (Work = {}));
+const obj = Work.A;
+console.log(obj);
+
+///
+const enum Work {
+    A = 'A',
+    B = "b",
+}
+
+const obj = Work.A
+console.log(obj);
+
+// 编译结果
+"use strict";
+const obj = "A" /* A */;
+console.log(obj);
+```
+
+## never类型到底是干嘛的？
+
+never类型是一种**底座类型**。底座类型是任何类型的子类型（但所有类型的子类型不一定都是never）
+
+```typescript
+// 什么是底部类型， never可以赋值给任何类型， 任何类型不能赋给never， 类似Java， Object和具体类的关系
+let a: never;
+
+a = 1; // 编译报错 Type '1' is not assignable to type 'never'.
+
+let b: number = 0;
+b = a;  // OK 
+let c: object;
+c = a;  // OK
+```
+
+一般用于两种情况，1. 永远不会返回的情况，比如while(true)， 2. 会抛出异常的情况
+
+和void的区别，void是函数没有显示返回时默认返回undefined。而never是永远不返回了或者会因为抛错而异常退出
+
+```typescript
+function fn(): never {
+	while(true) {
+    
+  }
+}
+
+function fn(): never {
+	throw new Error('');
+}
+```
+
+因为never是底部类型，是任何类型的子类型，所以当它和任何类型做& 那么得到的都是never
+
+```typescript
+type T1 = number & never // never
+// T1表示，同时既可以赋值为number也可以赋值为never，因为never为底部类型，所以能赋给never就没法赋值给别的类型了
+type T2 = number & string // never
+// 同理一个类型不能同时赋给number和string， 所以就变成了never
+
+type T2 = number | never // number
+// T2表示， number和never的联合，表示类型二选一，能赋值给number那肯定也能赋值给never， 所以结果就是number
+```
 
