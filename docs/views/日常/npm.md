@@ -5,7 +5,6 @@ tags:
  - npm
 categories:
  - 工具
-
 ---
 
 npm就是前端的maven，可以说是怎么都绕不开的工具了，这里总结下各种npm相关的知识点
@@ -97,7 +96,8 @@ $ npm run script1.js && npm run script2.js // 串行
 npm whoami 确定当前用户 
 npm view package-name 查看某包的具体信息（当前版本/管理人/相关依赖） 
 npm config get registry 得到当前源 
-npm login –registry=[https://registry.npm.terminus.io](https://registry.npm.terminus.io/) 登陆到公司源 
+npm config set registry=https://registry.npm.terminus.io
+npm login –registry=https://registry.npm.terminus.io 登陆到公司源 
 npm publish 发布 
 npm info 包名 查看包状态 
 npm owner ls 查看包维护者 

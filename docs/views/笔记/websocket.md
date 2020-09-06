@@ -206,14 +206,18 @@ WebSocket的数据通信是通过数据帧传输的，为了防止网络安全�
 
 4. 通过状态位和opcode可以得到消息的分片信息，如果FIN=0 表示这个分片，那么server就不会立即返回而是等待后续的帧
 
-> Client: FIN=1, opcode=0x1, msg="hello"
-> Server: (process complete message immediately) Hi.
-> Client: FIN=0, opcode=0x1, msg="and a"
-> Server: (listening, new message containing text started)
-> Client: FIN=0, opcode=0x0, msg="happy new"
-> Server: (listening, payload concatenated to previous message)
-> Client: FIN=1, opcode=0x0, msg="year!"
-> Server: (process complete message) Happy new year to you too!
+```
+Client: FIN=1, opcode=0x1, msg="hello"
+Server: (process complete message immediately) Hi.
+Client: FIN=0, opcode=0x1, msg="and a"
+Server: (listening, new message containing text started)
+Client: FIN=0, opcode=0x0, msg="happy new"
+Server: (listening, payload concatenated to previous message)
+Client: FIN=1, opcode=0x0, msg="year!"
+Server: (process complete message) Happy new year to you too!
+```
+
+
 
 5. 然后接下来就是对具体类型的解析，以文本为例，先取出下一个字节的第一位看是否使用MASK掩码。然后取低7位那payload的长度。
    1. 如果值为 0-125，那么就表示负载数据的长度。

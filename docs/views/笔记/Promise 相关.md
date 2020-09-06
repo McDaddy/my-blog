@@ -15,6 +15,15 @@ categories:
 
 <!-- more -->
 
+## Promise的优点
+
+1. 更优雅的异常捕获，原先的回调模式， 必须在每一个回调的第一步完成异常的处理，现在可以统一处理
+
+## Promise的缺点
+
+1. 虽然可以链式调用，但依然是基于回调的，即在then或者catch里面写回调函数，还是可能会把代码写很长
+2. 一个promise一旦开始没法停止
+
 ## Promise 基础
 
 - Promise是一种规范，只要自己的实现符合Promise A+的规范，那就是一个标准的Promise
@@ -364,3 +373,14 @@ setTimeout(() => {
 }, 1110);
 ```
 
+## Q & A
+
+Q： resolve的下一行报错了 会怎么样？
+
+A： 不会怎么样。代码不会报错。 就像这个throw error不存在一样
+
+Q：finally后面跟then会怎样？
+
+A：finally虽然也是返回promise，但是不会影响下一个then得到的结果，所以不管return什么都是没用的，下一个then只会取上面的结果，此外，finally是函数是拿不到上一个promise的结果的。 **但是**如果在finally中报错了。那还是会走到下一个catch中去的。<u>finally的本质任务</u>是不被跳过，普通的then和catch都是可能被选择性跳过的而finally不会。 可以在一串then中间插一个finally，即使finally前的某一步报错了，也会在finally卡住，而不会直接跑到最后去
+
+![image-20200906182409315](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200906182409315.png)
