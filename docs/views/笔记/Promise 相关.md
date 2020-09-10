@@ -383,4 +383,10 @@ Q：finally后面跟then会怎样？
 
 A：finally虽然也是返回promise，但是不会影响下一个then得到的结果，所以不管return什么都是没用的，下一个then只会取上面的结果，此外，finally是函数是拿不到上一个promise的结果的。 **但是**如果在finally中报错了。那还是会走到下一个catch中去的。<u>finally的本质任务</u>是不被跳过，普通的then和catch都是可能被选择性跳过的而finally不会。 可以在一串then中间插一个finally，即使finally前的某一步报错了，也会在finally卡住，而不会直接跑到最后去
 
-![image-20200906182409315](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200906182409315.png)
+Q: 如果发生了reject行为，但是后续没有.catch或者没有try catch会怎样
+
+A：结果就跟throw Error一样。会抛出一个`UnhandledPromiseRejectionWarning`，导致程序异常
+
+Q: 如果在Promise.reject中传入一个异步promise，下面的catch中得到的data是什么
+
+A：如果是Promise.resolve传入promise那就相当于`Promise.resolve(p).then === p.then `，但如果是Promise.reject(p)的话，这个p就相当于是reason不会等待它改变状态直接传到下面的catch里面去 

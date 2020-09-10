@@ -71,15 +71,11 @@ git pull = git fetch + git merge
 git pull --rebase = git fetch + git rebase
 ```
 
-
-
 ## 查找commit来自哪个分支
 
 ```shell
 git branch --contains <commit-id>
 ```
-
-
 
 ## 撤回本地已经commit但是没有push的提交
 
@@ -90,8 +86,6 @@ git reflog
 # --hard 结束之后已经commit的代码会消失
 git reset --soft [<commit-id>/HEAD~n>]
 ```
-
-
 
 ## 修改分支名
 
@@ -105,8 +99,6 @@ git branch -m <oldbranch> <newbranch>
 git clean -n # 列出所有要移除的files
 git clean -f # 移除
 ```
-
-
 
 ## 删除分支
 
@@ -137,8 +129,6 @@ git remote update prod --prune
 git remote -v
 ```
 
-
-
 ## 多次rebase主分支时，总是遇到要resolve相同冲突的情况
 
 通过配置rerere， 它就会记住同一个冲突的处理方式
@@ -146,8 +136,6 @@ git remote -v
 ```shell
 git config --global rerere.enabled 1
 ```
-
-
 
 ### 合并多个commit
 
@@ -157,8 +145,6 @@ git rebase -i develop // 合并从develop到现在所有的commit
 
 // 会出现编辑框，只保留一个commit，剩下的都标成s即squash
 ```
-
-
 
 ## 查看HEAD位置
 

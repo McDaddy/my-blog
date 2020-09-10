@@ -204,3 +204,30 @@ type T2 = number | never // number
 // T2表示， number和never的联合，表示类型二选一，能赋值给number那肯定也能赋值给never， 所以结果就是number
 ```
 
+## 如何通过实际值动态判断类型
+
+可以通过`x is T`的语法， 通过这个判断可以动态决定那些非原生类型
+
+```typescript
+  interface A {
+    leg: number;
+    fly: string;
+  }
+  interface B {
+    leg: number;
+    run: string;
+  }
+
+  const isA = (x: A | B): x is A => {
+    return x.leg === 2;
+  };
+
+  const test = (input: A | B) => {
+    if (isA(input)) {
+      console.log('test -> input', input.fly);
+    } else {
+      console.log('test -> input.ss', input.run);
+    }
+  };
+```
+
