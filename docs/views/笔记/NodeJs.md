@@ -9,9 +9,22 @@ categories:
 
 ---
 
-node.js 是⼀个 JS 的服务端运⾏环境，简单的来说，他是在 JS 语⾔规范的基础上，封装了⼀些服务端的运⾏时对象，让我们能够简单实现⾮常多的业务功能。如果我们只使⽤ JS 的话，实际上只是能进⾏⼀些简单的逻辑运算。**node.js** 就是基于 **JS** 语法增加与操作系统之间的交互。
+node.js 不是语言而是⼀个 JS 的服务端运⾏环境，简单的来说，他是在 JS 语⾔规范的基础上，封装了⼀些服务端的运⾏时对象，让我们能够简单实现⾮常多的业务功能。如果我们只使⽤ JS 的话，实际上只是能进⾏⼀些简单的逻辑运算。**node.js** 就是基于 **JS** 语法增加与操作系统之间的交互。
 
 <!-- more -->
+
+## NodeJS解决了什么问题
+
+Node在处理高并发,I/O密集场景有明显的性能优势
+
+- 高并发,是指在同一时间并发访问服务器
+- I/O密集指的是文件操作、网络操作（XHR）、数据库，相对的有CPU密集，CPU密集指的是逻辑处理运算、压缩、解压、加密、解密
+- 做中间层，解决浏览器跨域问题
+- 前端工程化，npm/webpack等工具的基础
+
+## NodeJS的单线程
+
+JS的单线程指的是***主线程***是单线程，这个JS还是可以利用多核来运行的，比如我们的定时器、网络请求等待都是调用了其他线程来实现的。由于主线程是单线程的原因，开发者不需要关心锁的问题，并且节约内存（因为像Java那样多线程，每个线程都是需要内存开销的），不需要切换执行上下文。缺点就是因为单线程，如果处理CPU密集型（大运算量）就会出现阻塞
 
 ## NodeJS的底层依赖
 
@@ -21,6 +34,108 @@ node.js 是⼀个 JS 的服务端运⾏环境，简单的来说，他是在 JS �
 - openssl: 处理加密算法，各种框架运⽤⼴泛。
 - zlib: 处理压缩等内容。
 
+## NodeJS中的全局对象
+
+浏览器中的this是window，服务端中的this指代的是global。但是默认我们访问的模块中的this都是被内容更改的，指向module.exports
+
+## NodeJS的全局属性
+
+- setTimeout
+- setInterval
+- clearInterval
+- clearTimeout
+- queueMicroTask
+- setImmediate
+- process
+- Buffer
+- console
+
+## NodeJS的事件循环
+
+```
+    本阶段执行已经被 setTimeout() 和 setInterval() 的调度回调函数。
+   ┌───────────────────────────┐
+┌─>│           timers          │ 
+│  └─────────────┬─────────────┘
+|   执行延迟到下一个循环迭代的 I/O 回调。
+│  ┌─────────────┴─────────────┐
+│  │     pending callbacks     │
+│  └─────────────┬─────────────┘
+|   仅系统内部使用。
+│  ┌─────────────┴─────────────┐
+│  │       idle, prepare       │
+│  └─────────────┬─────────────┘      
+|  检索新的I/O事件;执行与 I/O相关的回调  ┌───────────────┐
+│  ┌─────────────┴─────────────┐      │   incoming:   │
+│  │           poll            │<─────┤  connections, │
+│  └─────────────┬─────────────┘      │   data, etc.  │
+│  setImmediate() 回调函数在这里执行。  └───────────────┘
+│  ┌─────────────┴─────────────┐      
+│  │           check           │
+│  └─────────────┬─────────────┘
+|  一些关闭的回调函数
+│  ┌─────────────┴─────────────┐
+└──┤      close callbacks      │
+   └───────────────────────────┘
+```
+
+> 每一个阶段都对应一个事件队列，当event loop执行到某个阶段时会将当前阶段对应的队列依次执行。当该队列用尽或达到回调上限，事件循环移动到下一阶段
+>
+> pending callbacks / idle, prepare / close callbacks 都是系统内部调用，使用者无法控制
+>
+> i/o 文件读写自动会放到poll阶段中处理
+>
+> process.nextTick不属于事件循环的一部分
+
+以下代码执行的结果是有两种可能的， timeout和immediate都有可能第一个输出，原因是当主线程结束，timers队列有一个callback，check队列也有一个callback，大多数情况下都是immediate先输出，因为setTimeout的0实际上不会是真的0，是会有一定延迟的，此时timers阶段的callback事实上还没到点，所以就跳过开始loop后面的，直到check阶段输出immediate，但多次运行这段代码，就有可能延迟小，timeout先输出。
+
+```javascript
+setTimeout(() => {
+    console.log('timeout')
+}, 0);
+setImmediate(()=>{
+    console.log('immediate')
+});
+```
+
+同样的代码放在I/O的回调中，无论运行多少次都是immediate先输出，因为I/O回调属于poll阶段，当它结束之后，直接进入check阶段，所以不可能先输出timeout
+
+```javascript
+const fs = require('fs');
+fs.readFile('./note.md',function () { // I/O  轮询时会执行i/o回调 如果没有定义setImmediate会等待剩下的i/o完成 或者定时器到达时间
+    setTimeout(() => {
+        console.log('timeout')
+    }, 0);
+    setImmediate(()=>{ // 不是特别重要的任务 可以放到setImmediate
+        console.log('immediate')
+    });
+})
+```
+
+在NodeJS中如果不需要设延迟时间的情况下，都可以用setImmediate来替代setTimeout
+
+以下代码输出顺序为nextTick -> promise -> timeout。 原因是process.nextTick是微任务，它的执行时机是主线程执行栈执行完毕后(同步代码执行完毕)立即执行，同样是微任务但是优先级高于promise.then
+
+```javascript
+setTimeout(() => {
+    console.log('timeout')
+}, 0);
+Promise.resolve().then(()=>{
+    console.log('promise')
+})
+process.nextTick(()=>{ // 当前执行栈中执行完毕后 立即调用的
+    console.log('nextTick')
+});
+```
+
+### NodeJs与浏览器Event Loop的区别
+
+浏览器的事件循环只有两个队列，宏任务队列和微任务队列，清空完微任务之后还有一步重新渲染页面（不是每次都执行）
+
+Node的事件循环按照阶段分有6个队列，每个阶段都有自己的队列，而这些队列里的任务都是宏任务，每执行完一个宏任务都会清空微任务
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200914144028019.png" alt="image-20200914144028019" style="zoom:80%;" />
+
 ## CommonJS的实现
 
 众所周知，CommonJS并不是ECMA规范所支持的模块化方案，相比ES Module， CommonJS完全可以理解为是运行环境为代码封装模块化提供的一种非语法层面的实现。 类似是一种polyfill，脱离node环境就是无法运转起来的。
@@ -28,50 +143,73 @@ node.js 是⼀个 JS 的服务端运⾏环境，简单的来说，他是在 JS �
 如果我们要自己实现CommonJS的这套模块化规范，理论上只需要一个类似V8的JS引擎就可以做到
 
 ```javascript
-// index.js
-require('./require');
-const m = customRequire('./module');
-
-console.log('log', m)
-```
-
-```javascript
-// module.js
-module.exports = {
-    a: 1
-}
-```
-
-```javascript
-const vm = require('vm');
-const fs = require('fs');
+// 如果同时存在a.js 和 a.json  优先级
 const path = require('path');
-
-const customRequire = function(inputPath) {
-  	// 这里没有处理扩展名的问题，实际实现会更复杂
-  	// 拿到要require的文件的路径，然后合成为绝对路径，最后将文件内容用字符串形式读出
-    const filePath = path.resolve(__dirname, './' + inputPath + '.js');
-    const content = fs.readFileSync(filePath, 'utf-8');
-    
-    const functionWrap = [
-        '(function(require, module, exports) {',
-        '})'
-    ]
-		// 给content前后套上一个匿名函数，这样代码里面就能得到require，module等对象
-    const moduleStr = functionWrap[0] + content + functionWrap[1];
-    const myModule = {
-        exports: {}
-    };
-  	// 类似eval和new Function，将上面的函数字符串转化成真的函数对象，此处script的typeof是object
-    const script = new vm.Script(moduleStr, { filename: 'index.js'})
-    // 这里得到的result是一个真正的可执行的函数
-    const result = script.runInThisContext();
-  	// 把customRequire递归得传递进去，最后的导出都会在module.exports
-    result(customRequire, myModule, myModule.exports);
-    return myModule.exports;
+const fs = require('fs');
+const vm = require('vm');
+function Module(filename){
+    this.id = filename; // 文件名
+    this.exports = {}; // 代表导出的结果
+    this.path = path.dirname(filename); // 父亲目录
 }
+Module._cache = {}
+Module._extensions = {};
+Module.wrapper = (content) =>{
+    // 假如说我把变量挂载在了global newFunction 是获取不到的
+    return `(function(exports,require,module,__filename,__dirname){${content}})`
+}
+Module._extensions['.js'] = function (module) {
+    let content = fs.readFileSync(module.id,'utf8');
+    // 根据内容包裹一个函数
+    let str = Module.wrapper(content); // 目前只是字符串
+    let fn = vm.runInThisContext(str); // 让字符串变成函数
+    let exports = module.exports; // module.exports === exports
 
-global.customRequire = customRequire;
+    // 模块中的this是module.exports 不是 module
+    // js 中的call会让函数改变this指向 并且让函数执行
+    fn.call(exports,exports,myReq,module,module.id,module.path);
+    // 这句代码执行后 会做module.exports = 'hello' 
+}
+Module._extensions['.json'] = function (module) {
+    let content = fs.readFileSync(module.id,'utf8');
+    module.exports = JSON.parse(content); // 手动将json的结果赋予给module.exports
+}
+Module._resolveFilename = function (filename) {
+    let filePath = path.resolve(__dirname,filename);
+    let isExists = fs.existsSync(filePath);
+    if(isExists) return filePath;
+
+    // 尝试添加 .js 和 .json后缀
+    let keys = Reflect.ownKeys(Module._extensions);
+    for(let i = 0; i< keys.length;i++){
+        let newFile = filePath + keys[i]; // 尝试增加后缀
+        if(fs.existsSync(newFile)) return newFile
+    }
+    throw new Error('module not found');
+}
+Module.prototype.load = function () {
+    // 加载时 需要获取当前文件的后缀名 ，根据后缀名采用不同的策略进行加载
+    let extension = path.extname(this.id);
+    Module._extensions[extension](this); // 根据这个规则来进行模块的加载
+}
+function myReq(filename){
+    // 1.解析当前的文件名
+    
+    filename = Module._resolveFilename(filename);
+    if(Module._cache[filename]){ // 直接将exports返回即可
+        return Module._cache[filename].exports;
+    }
+    // 2.创建模块
+    let module = new Module(filename);
+
+    Module._cache[filename] = module; // 将模块缓存起来
+
+    // 3.加载模块
+    module.load(); // 调用load方法进行模块的加载
+    return module.exports;
+}
+let r = myReq('./a'); // 默认只识别module.exports 的结果
+console.log(r);
 ```
 
 从上面的实现可以解释为什么`module.exports = xxx`和`exports.xx = xx`都是合理的。而`exports = xxx`是不合规的。因为把exports直接赋给一个值就等于把exports和module之间的引用关系给切断了。
@@ -88,3 +226,71 @@ path.join('/a', '/b', '/c');   //   /a/b/c
 path.join('a', 'b', 'c');      //   /a/b/c
 ```
 
+## 如何查找模块
+
+当遇到`require(‘a’)`，将会如何查找模块？顺序如下
+
+- 默认先查找当前文件夹是否有a.js文件
+- 找当前文件夹是否有a.json文件
+- 找当前文件夹是否有一个叫a的文件夹，有的话看是否有package.json， 有的话是否有看有没有main这个属性，有的话就找main的文件，否则找index.js
+- 假设a不是一个核心模块，那么就会在当前文件夹的node_modules下找，没有的话就继续向上找直到根目录，找不到就报错
+
+## Node的event模块
+
+event模块就是一个典型的发布订阅模式。主要提供几个api
+
+- on 用来订阅，将一个事件回调注册在EventEmitter实例上
+- emit 用来发布，触发所有之前注册过的事件回调
+- once 用来订阅，但只触发一次之后就销毁
+- off 用来取消订阅
+- instance.on(’newListener’, cb)， 当有新的注册事件时的回调注册
+
+```javascript
+function EventEmitter(){
+    this._events = {}
+}
+// 订阅
+EventEmitter.prototype.on = function (eventName,callback) {
+    if(!this._events){
+        this._events = Object.create(null);
+    }
+    //  当前绑定的事件 不是newListener事件就触发newListener事件
+    if(eventName !== 'newListener'){
+        this.emit('newListener',eventName)
+    }
+    if(this._events[eventName]){
+        this._events[eventName].push(callback)
+    }else{
+        this._events[eventName] = [callback]
+    }
+}
+// 发布
+EventEmitter.prototype.emit = function (eventName,...args) {
+    if(!this._events) return
+    if(this._events[eventName]){
+        this._events[eventName].forEach(fn=>fn(...args))
+    }
+}
+// 绑定一次
+EventEmitter.prototype.once = function (eventName,callback) {
+    const once = (...args) =>{
+        callback(...args);  
+        // 当绑定后将自己移除掉
+        this.off(eventName,once);
+    }
+    once.l = callback; // 用来标识这个once是谁的
+    this.on(eventName,once)
+}
+// 删除
+EventEmitter.prototype.off = function (eventName,callback) {
+    if(!this._events) return
+    this._events[eventName] = this._events[eventName].filter(fn=>((fn !== callback) && (fn.l!=callback)))
+}
+module.exports = EventEmitter 
+```
+
+
+
+## util模块中有用的方法
+
+- util.inherits  利用`Object.setPrototypeOf(Girl.prototype ,EventEmitter.prototype)`来实现继承
