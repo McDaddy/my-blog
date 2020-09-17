@@ -132,6 +132,26 @@ process.nextTick(()=>{ // 当前执行栈中执行完毕后 立即调用的
 
 浏览器的事件循环只有两个队列，宏任务队列和微任务队列，清空完微任务之后还有一步重新渲染页面（不是每次都执行）
 
+以下代码段，如果是setTimeout页面会有显示红色的瞬间，如果是promise则自始至终都是黄色，因为渲染页面是在执行完主线程和清空微任务之后执行的
+
+```html
+    <script>
+        document.body.style.background = 'red';
+        console.log(1)
+        // Promise.resolve().then(()=>{
+        //     console.log(2)
+        //     document.body.style.background = 'yellow';
+        // })
+        setTimeout(() => {
+            console.log(2)
+            document.body.style.background = 'yellow';
+        }, 0);
+        console.log(3);
+    </script>
+```
+
+
+
 Node的事件循环按照阶段分有6个队列，每个阶段都有自己的队列，而这些队列里的任务都是宏任务，每执行完一个宏任务都会清空微任务
 
 <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200914144028019.png" alt="image-20200914144028019" style="zoom:80%;" />
@@ -213,6 +233,17 @@ console.log(r);
 ```
 
 从上面的实现可以解释为什么`module.exports = xxx`和`exports.xx = xx`都是合理的。而`exports = xxx`是不合规的。因为把exports直接赋给一个值就等于把exports和module之间的引用关系给切断了。
+
+其次，在node模块中的最外层的this都是指向module.exports的，所以基本都是{}，如果想得到global只能利用函数
+
+```javascript
+function a() { // 此时的a函数是属于全局作用域，里面的this相当于浏览器的window
+    console.log(this); // global
+}
+a()
+```
+
+
 
 ## path.resolve vs join
 

@@ -148,6 +148,22 @@ promise.then(function(x) {
 `Promise.race`
 返回⼀个 promise 实例，接受⼀个数组，⾥⾯含有多个 promise 实例，当有⼀个 promise 实例状态改变时，就进⼊该状态且不可改变。这⾥所有的 promise 实例为竞争关系，只选择第⼀个进⼊改变状态的promise 的值。
 
+`Promise.allSettled`
+
+接受promise数组，不管成功失败都会返回，返回结构如下
+
+```
+[
+  { status: 'fulfilled', value: 1 },
+  { status: 'fulfilled', value: 2 },
+  { status: 'fulfilled', value: 5 },
+  { status: 'rejected', reason: 3 },
+  { status: 'fulfilled', value: 4 }
+]
+```
+
+
+
 ## 手撸一个简易版Promise
 
 ```javascript

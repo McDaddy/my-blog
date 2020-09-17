@@ -45,7 +45,7 @@ type Point = PartialPointX & { y: number; };
 ```
 
 4. class一定可以继承interface但不一定能继承type，原因跟第二点一样，class不能继承`type xx = string`
-5. interface可以重复定义，然后自动merge
+5. interface可以重复定义，然后自动merge，这一点的实际意义，比如要在Window这个内置类型上添加属性，直接定义一个同名的interface，然后写自己的属性，最后两者会自动合并，不会起冲突
 
 ```typescript
 // These two declarations become:

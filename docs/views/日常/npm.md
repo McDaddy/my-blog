@@ -143,7 +143,9 @@ npm i
 '@terminus/nusi': path.join(__dirname, 'node_modules/@terminus/nusi')
 ```
 
+## 如何快速打包源码
 
+`npm pack` 命令可以快速打出一个没有node_modules的tgz包
 
 ## 参考
 
