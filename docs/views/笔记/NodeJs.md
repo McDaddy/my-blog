@@ -320,6 +320,127 @@ EventEmitter.prototype.off = function (eventName,callback) {
 module.exports = EventEmitter 
 ```
 
+## Buffer
+
+### 编码的发展
+
+一个字节由8个位组成，gbk中一个汉字占2个字节，utf8中一个汉字3个字节
+
+- ASCII 满足英文母语和主要符号
+- GB2312 两个字节表示汉字，那么理论上就是能容纳相当于16个位数的汉字 0~255  256 * 256 个汉字，实际上收录了6763个汉字和682个其它符号
+- GBK是基于上面的扩展，包括21003个汉字和883个其它符号
+- Unicode 如果用GBK编码去显示非中文和英文的语言就会乱码，Unicode是一个统一解决方案
+- utf8 是Unicode的具体实现。一个汉字占3个字节，js语言用的是utf16
+
+### ArrayBuffer
+
+arrayBuffer是前端H5中的二进制，new ArrayBuffer(n)， 表示创建一个n个字节 n * 8位的内存单元，直接打印得到的结果是一个全是0的n字节空内容，默认是以8位作为一个字节
+
+```javascript
+{ [Uint8Contents]: <00 00 00 00>, byteLength: 4 }
+```
+
+如果要读取这段Buffer，需要转换成对应位的无符号Array，同样4个字节的arrayBuffer传入`new Uint16Array(arrayBuffer)`就会变成2 * 16的结构，`Uint32Array`以此类推
+
+```javascript
+const arrayBuffer = new ArrayBuffer(4); // 字节  4 * 8
+let x = new Uint8Array(arrayBuffer); // []
+x[0] = 1;
+x[1] = 255; // [1, 255, 0, 0]
+//  00000000     0000000    1111111100000001
+let x2 = new Uint16Array(arrayBuffer); //  16  2
+console.log(x2); // [65281, 0]
+let x3 = new Uint32Array(arrayBuffer); //  16  2
+console.log(x3); // [65281]
+```
+
+### JS的进制转换方法
+
+parseInt 用来将任何进制转换成十进制
+
+```javascript
+console.log(parseInt('11111111', 2)) // 255
+```
+
+Number.toString(2/8/16) 用来将十进制转成各种进制
+
+```javascript
+Number(255).toString(16) // "ff"
+Number(255).toString(2) // "11111111"
+Number(255).toString(8)  // "377"
+```
+
+Base64生成的规则
+
+Base64不是加密方式，是一种编码，主要用于url替换和小图片之类资源的替换
+
+Base64要求把**每三个**8Bit的字节转换为四个6Bit的字节（3*8 = 4*6 = 24），然后把6Bit再添两位高位0，组成四个8Bit的字节，也就是说，转换后的字符串**理论上将要比原来的长1/3**。
+
+```javascript
+// Buffer.from('xx') 可以得到内容对应的编码结构
+let r = Buffer.from('韡');
+console.log(r) // e9 9f a1   3*8
+console.log(0xe9.toString(2)); // 得到三个字节的二进制
+console.log(0x9f.toString(2));
+console.log(0xa1.toString(2));
+
+// 接下来是base64关键的一步， 它会把3 * 8 变成 4 * 6的字节组合，保证每个字节都是6位
+// 11101001  10011111  10100001   // 将 3 * 8的格式 拆分成 4 * 6
+// 得到4位的十进制
+console.log(parseInt('111010', 2)) // 58
+console.log(parseInt('011001', 2))// 25
+console.log(parseInt('111110', 2)) // 62
+console.log(parseInt('100001', 2)) // 33
+
+// str是64位所有的内容，所有的内容都将由这64位中的内容替换
+let str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+str+=str.toLowerCase();
+str+='0123456789+/';
+
+console.log(str[58] + str[25] + str[62] + str[33]);  // 6Z+h
+console.log(Buffer.from('韡').toString('base64')) // 6Z+h
+// 同样的方法去计算字母a的base64编码
+// utf8编码是 0x61
+// 二进制是parseInt('61', '16').toString(2) = 00000001100001 结果是两个字节按6位分割一下就是 000000 011000 010000 最后的01后面用0填补
+// 第一位是24 第二位16就是YQ 然后不足6 * 4的部分会用=来填补
+console.log(Buffer.from('a').toString('base64')) // YQ==
+```
+
+### 定义Buffer的三种方法
+
+```javascript
+const b1 = Buffer.alloc(4) // 分配空的Buffer
+const b2 = Buffer.from('哈哈哈') // 得到字符串的Buffer
+const b3 = Buffer.from([65,65,66]) // 用数组创建Buffer
+```
+
+### Buffer的主要方法
+
+- buff.toString() 参数可以传encoding，比如base64实现转码。
+- buff.fill()
+- buff.slice() buffer分片，大文件上传下载用
+- buff.copy
+- Buffer.concat() 作用同slice
+- Buffer.isBuffer() 判断是不是Buffer
+
+### 前端的二进制对象
+
+前端最常用的Blob对象 binary large object (是不可变的) 代表的是文件类型
+
+`URL.createObjectURL`可以通过一个Blob参数返回一个ObjectURL， 可以作为href和src，返回的不是一个字符串，而是一个资源的URL。如果`URL.revokeObjectURL`就会被销毁
+
+```react
+// 实现前端下载
+let str = `<h1>hello world</h1>`;
+const blob = new Blob([str], {
+     type: 'text/html'
+});
+let a = document.createElement('a');
+a.setAttribute('download', 'a.html');
+a.href = URL.createObjectURL(blob);
+document.body.appendChild(a);
+```
+
 
 
 ## util模块中有用的方法
