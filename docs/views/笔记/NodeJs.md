@@ -24,7 +24,7 @@ Node在处理高并发,I/O密集场景有明显的性能优势
 
 ## NodeJS的单线程
 
-JS的单线程指的是***主线程***是单线程，这个JS还是可以利用多核来运行的，比如我们的定时器、网络请求等待都是调用了其他线程来实现的。由于主线程是单线程的原因，开发者不需要关心锁的问题，并且节约内存（因为像Java那样多线程，每个线程都是需要内存开销的），不需要切换执行上下文。缺点就是因为单线程，如果处理CPU密集型（大运算量）就会出现阻塞
+JS的单线程指的是**主线程**是单线程，这个JS还是可以利用多核来运行的，比如我们的定时器、网络请求等待都是调用了其他线程来实现的。由于主线程是单线程的原因，开发者不需要关心锁的问题，并且节约内存（因为像Java那样多线程，每个线程都是需要内存开销的），不需要切换执行上下文。缺点就是因为单线程，如果处理CPU密集型（大运算量）就会出现阻塞
 
 ## NodeJS的底层依赖
 
@@ -374,7 +374,7 @@ Base64生成的规则
 
 Base64不是加密方式，是一种编码，主要用于url替换和小图片之类资源的替换
 
-Base64要求把**每三个**8Bit的字节转换为四个6Bit的字节（3*8 = 4*6 = 24），然后把6Bit再添两位高位0，组成四个8Bit的字节，也就是说，转换后的字符串**理论上将要比原来的长1/3**。
+Base64要求把**每三个**8Bit的字节转换为四个6Bit的字节（3 * 8  =  4 * 6  =  24），然后把6Bit再添两位高位0，组成四个8Bit的字节，也就是说，转换后的字符串**理论上将要比原来的长1/3**。
 
 ```javascript
 // Buffer.from('xx') 可以得到内容对应的编码结构
@@ -429,7 +429,7 @@ const b3 = Buffer.from([65,65,66]) // 用数组创建Buffer
 
 `URL.createObjectURL`可以通过一个Blob参数返回一个ObjectURL， 可以作为href和src，返回的不是一个字符串，而是一个资源的URL。如果`URL.revokeObjectURL`就会被销毁
 
-```react
+```javascript
 // 实现前端下载
 let str = `<h1>hello world</h1>`;
 const blob = new Blob([str], {
@@ -439,6 +439,139 @@ let a = document.createElement('a');
 a.setAttribute('download', 'a.html');
 a.href = URL.createObjectURL(blob);
 document.body.appendChild(a);
+```
+
+## Stream
+
+### 流的种类
+
+包括可读流（Readable）可写流（Writable） 双工流（Duplex）转化流（Transform）
+
+### 可读流`readStream`
+
+一个标准的可读流需要支持`on('data') on('end')`  如果是文件流会再提供两个方法 open/close
+
+fs模块可以通过`createReadStream`来创建一个可读`文件`流，内部是继承了stream模块，其中需要调用fs的open/close/read方法
+
+第一个参数是一个文件路径，第二个参数是options，其中主要包括
+
+- encoding	默认null，则输出为buffer，也可以是utf8/base64，这样输出就是编码好的结果
+- autoClose  是否读取完毕后自动关闭流
+- start/end    表示读取的`字节数`，包前包后
+- `highWaterMark`  这个概念比较重要，直译就是水位线，默认64 * 1024字节，表示一次读取的量，如果文件的内容超过水位线那就需要分批读取，会分多次在`on(‘data’)`中返回，这样需要手动拼接内容
+
+readStream的方法包括
+
+- on  用来监听事件，包括error/data/close/open
+- pause  用来暂停流
+- resume  用来恢复流
+
+```javascript
+const fs = require('fs');
+// const ReadStream = require('./ReadStream')
+const path = require('path');
+//   内部是继承了stream模块 并且基于 fs.open fs.read fs.close方法
+let rs = fs.createReadStream(path.resolve(__dirname,'test.txt'),{
+// let rs = new ReadStream(path.resolve(__dirname, 'test.txt'), {
+    flags: 'r', // 创建可读流的标识是r  读取文件
+    encoding: null, // 编码默认null 则输出buffer 也可以是utf8
+    autoClose:false, //  读取完毕后自动关闭
+    start: 0, // 包前又包后 字节数
+    end: 13,
+    // 2 4 
+    highWaterMark: 2 // 如果不写默认是64*1024
+});
+rs.on('error', function(err) {
+    console.log('error', err)
+})
+rs.on('open', function(fd) { // rs.emit('open')
+    console.log('open', fd);
+});
+let arr = [];
+rs.on('data', function(chunk) { // UTF8  ASCII  49 -> 9
+    // rs.pause(); // 默认一旦监听了on('data')方法会不停的触发data方法
+    console.log(chunk);
+    arr.push(chunk)
+});
+rs.on('end', function() { // 文件的开始到结束都读取完毕了
+    console.log(Buffer.concat(arr).toString())
+})
+rs.on('close', function() {
+    console.log('close')
+})
+```
+
+### 实现一个ReadStream步骤
+
+1. 内部会 new ReadStream  继承于Readable接口
+
+2. 内部会先进行格式化
+
+3. 内部会默认打开文件 ReadStream.prototype.read
+
+4. Readable.prototype.read ->  ReadStream.prototype._read
+
+```javascript
+const {Readable} = require('stream');
+
+class MyRead extends Readable{ // 默认会调用Readable中的read方法
+    _read(){
+        this.push('ok'); // push方法是Readable中提供的 只要我们调用push将结果放入 就可以触发 on('data事件')
+        this.push(null); // 放入null的时候就结束了
+    }
+}
+let mr = new MyRead;
+
+mr.on('data',function (data) {
+    console.log(data);
+})
+mr.on('end',function () {
+    console.log('end')
+})
+mr.on('open',function () {
+    console.log('open')
+})
+
+// 文件可读流 可读流 不是一样的  可读流就是继承可读流接口，并不需要用到fs模块
+// 基于文件的可读流内部使用的是fs.open fs.close on('data') end
+```
+
+### pipe方法
+
+pipe是连接可读流和可写流的管道，目的就是做到边读边写，同时不占过多的内存，原理就是readStream调用pipe时，就会监听rs的data事件把读到的chunk写入writeStream（ws.write(chunk)）， 当数据量超过ws的水位线之后，就会触发rs的pause方法来暂停读取，当缓存队列被写入完成之后触发ws的drain事件从而来调用rs的resume继续读取。
+
+### 可写流WriteStream
+
+**文件**可写流的参数和可读流基本一致，区别是`highWaterMark`，在可读流中，它是一次能读的最大字节数，在可写流中它不能限制一次写的最大字节数，它只是一个标识，当`ws.write(‘xxx’)`内容大于highWaterMark时就返回`false`否则返回`true`，这个标识可以结合`drain`事件来实现利用有限内存写入的功能来用时间换空间，比如下面用一个字节写入10个数
+
+`highWaterMark`默认是16k
+
+**如果多次写入的内容大于水位线**，也就是说反复调用write方法， 那么当待写入的内容大于水位线时，水位线之外的内容用一个列表缓存起来进行排队写入，整个过程只有第一次是直接写入文件，结束之后递归检查缓存然后清空
+
+`end`方法，可以传字符串，或者不传，如果传了就会把内容加在末尾，但能重复调用
+
+总结起来就是，单次调write其实是可以写无限大的内容的。但如果是多次调用，那么大于水位线的部分都将排队写入。只有当待写入内容超过水位线时才会触发`needDrain`,即写完之后触发drain事件
+
+```javascript
+// 用一个字节的空间来实现写入10个数 
+const fs = require('fs');
+const path = require('path');
+const ws = fs.createWriteStream(path.resolve(__dirname, 'test.txt'), {
+    highWaterMark: 1
+})
+let i = 0;
+function write() { // fs.open('xxx','w')
+    let flag = true;
+    while (i < 10 && flag) {
+        flag = ws.write('' + i++)
+    }
+}
+write();
+// 抽干事件 当我们的内容到达预期后，或者超过预期时会触发此方法 （必须等这些内容都写到文件中才执行）
+ws.on('drain', function() {
+    write();
+    console.log('清空')
+});
 ```
 
 

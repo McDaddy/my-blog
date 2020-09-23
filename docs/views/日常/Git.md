@@ -161,3 +161,10 @@ git checkout HEAD^ # 往后移动一个commit
 git checkout HEAD~4 # 往后移动4个commit
 ```
 
+## git config
+
+```shell
+git config -e 可以直接编辑git的local配置
+git config -l 列出所有git配置
+```
+

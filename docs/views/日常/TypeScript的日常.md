@@ -127,7 +127,7 @@ Object.keys(obj).forEach((key) => {
 区别就是带上了const 那么在编译过后就会被移除， 而不带const就不会
 
 ```typescript
-const enum Work {
+enum Work {
     A = 'A',
     B = "b",
 }
@@ -231,3 +231,61 @@ type T2 = number | never // number
   };
 ```
 
+## TS的符号集合
+
+### ! 非空断言操作符
+
+放在变量的尾巴上代表断言这个变量不为空
+
+```javascript
+let a: string | null | undefined
+let b = a! // string 忽略null和undefined
+a!.toString() // OK
+
+// 确定赋值断言
+let x!: number; 
+initialize();
+console.log(2 * x); // Ok 按理说这里如果没有赋值断言，就会报 Variable 'x' is used before being assigned.(2454)
+
+function initialize() {
+  x = 10;
+}
+```
+
+### ?. 运算符
+
+Optional Chain，?.前面的部分如果为空就不执行后面的，直接返回undefined
+
+```javascript
+const val = a?.b;
+// 编译的结果
+var val = a === null || a === void 0 ? void 0 : a.b;
+
+let result = obj.customMethod?.();
+// 编译的结果
+var result = (_a = obj.customMethod) === null
+  || _a === void 0 ? void 0 : _a.call(obj);
+
+// a?.b vs a ? a.b : undefined的区别
+// 后者当a是0 NaN 空字符串 false等falsy的情况下都会返回undefined， 而?.只关心null和undefined
+```
+
+### ?? 空值合并运算符
+
+当左侧操作数为 null 或 undefined 时，其返回右侧的操作数，否则返回左侧的操作数。 同理左边只关心null和undefined。同时不能和&&和||混合使用
+
+```javascript
+const foo = null ?? 'default string';
+console.log(foo); // 输出："default string"
+
+const baz = 0 ?? 42;
+console.log(baz); // 输出：0
+```
+
+### & 运算符
+
+所有基础类型的合并结果都是never，除此之外才能合并
+
+### | 分隔符
+
+与&是相反的，联合类型就是或的关系。用于限制类型的范围
