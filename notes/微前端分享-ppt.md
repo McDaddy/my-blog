@@ -1,9 +1,21 @@
+---
+marp: true
+theme: gaia
+footer: 'kuimo 2020'
+paginate: true
+style: |
+  section a {
+      font-size: 30px;
+  }
+---
+
 ## 什么是微前端
 
 > Techniques, strategies and recipes for building a **modern web app** with **multiple teams** that can **ship features independently**. -- [Micro Frontends](https://micro-frontends.org/)
 >
 > 微前端是一种多个团队通过独立发布功能的方式来共同构建现代化 web 应用的技术手段及方法策略。
 
+---
 ## 微前端的核心价值
 
 - 技术栈无关
@@ -15,6 +27,7 @@
 - 明晰项目模块的边界
 - 减少维护代码量的成本 — 基于高内聚低耦合的原则
 
+---
 ## 微前端在组织架构的意义
 
 > Micro Frontends背后的想法是将网站或Web应用视为独立团队拥有的功能组合。 每个团队都有一个独特的业务或任务领域，做他们关注和专注的事情。团队是跨职能的，从数据库到用户界面开发端到端的功能。（[micro-frontends.org](https://link.zhihu.com/?target=https%3A//micro-frontends.org/)）
@@ -23,8 +36,7 @@
 
 <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200924153001498.png" alt="image-20200924153001498" style="zoom: 33%;" />
 
-
-
+---
 ## Iframe为什么不行
 
 - 刷新页面无法维持路由
@@ -32,6 +44,7 @@
 - 无法与主应用实时通信
 - 数据无法共享比如cookie
 
+---
 ## npm包实现的微前端有哪些弊端
 
 - 加大了宿主的体积，增加了宿主的编译打包时间
@@ -44,53 +57,32 @@
 - 无法独立发布运维（可以独立运行，但无法跟主应用集成）
 - 无法跨技术栈，本质还是代码的复制粘贴
 
+---
 ## Single-SPA
 
 - 支持跨技术栈
 - 子应用独立部署运维
 - 按需加载子应用
-
+---
 ## Qiankun
 
 - 基于Single-SPA
 - 样式隔离  确保微应用之间样式互相不干扰
 - JS沙箱  确保微应用之间 全局变量/事件 不冲突
 - 资源预加载  在浏览器空闲时间预加载未打开的微应用资源，加速微应用打开速度
+---
+## 需要解决的问题
 
-## 微前端框架需要解决的问题
-
-- 如何在主应用上加载子应用
-- 如何做到JS的安全沙箱
+- 如何做到路由保持
 - 如何做到CSS样式隔离
-- 如何做到路由保持及子应用根据路由按需加载
+- 如何做到JS的安全沙箱
+- 如何做到子应用根据路由按需加载
 - 主应用如何与子应用通信
-
-## 协议接入
-
-父子应用间必须要有约定好的对接方式，通信方式，所有的子应用都要遵守这个规则来导出自己。
-
-- 子应用必须导出成一个UMD形式的js入口文件，然后里面需要包含三个生命周期函数
-  - bootstrap 用于加载资源时使用
-  - mount  核心 用于子应用如何载入
-  - unmount  当子应用被卸载时调用
-- 独立部署  例如部署在一个nginx容器中，需要有一个HTML来加载导出的UMD
-- 主应用通过访问子应用部署的入口文件，将子应用载入自身的DOM节点中
-- 子应用要解决跨域问题
-
-![img](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/lifecycle.fb2af586.png)
-
-
-
-## 路由劫持
-
-微前端框架的路由劫持相较其他路由框架的路由劫持，最大的区别就是他要保证他的劫持方法优先执行
-
-
-
+---
 ## JS沙箱
 
 ![image-20200924155949626](/Users/chenweitao/Library/Application Support/typora-user-images/image-20200924155949626.png)
-
+---
 ### 快照沙箱
 
 1. 激活时将当前window属性进行快照处理
@@ -138,7 +130,7 @@ class SnapshotSandbox {
   }
 }
 ```
-
+---
 ### Proxy沙箱
 
 每个应用都创建一个proxy来代理window，好处是每个应用都是相对独立，不需要直接更改全局window属性
@@ -216,8 +208,6 @@ class ProxySandbox {
 - 标品化 & 二开？
 - dice 主应用faas化？
 
-<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200925104337246.png" alt="image-20200925104337246" style="zoom:67%;" />
-
 ## 参考文档
 
 [了解什么是微前端](https://zhuanlan.zhihu.com/p/82965940)
@@ -225,5 +215,3 @@ class ProxySandbox {
 [micro-frontends](https://micro-frontends.org/)
 
 [说说JS中的沙箱](https://juejin.im/post/6844903954074058760)
-
-[微前端能给前端应用带来什么](https://www.atatech.org//articles/181494/?flag_data_from=mail_daily_headline&uid=573797)
