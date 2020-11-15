@@ -102,7 +102,7 @@ type Person = {
 
 
 
-## 如何得到一个对象的key集合类型
+## 如何得到一个对象的key集合类型?
 
 使用`keyof typeof`
 
@@ -204,7 +204,7 @@ type T2 = number | never // number
 // T2表示， number和never的联合，表示类型二选一，能赋值给number那肯定也能赋值给never， 所以结果就是number
 ```
 
-## 如何通过实际值动态判断类型
+## 如何通过实际值动态判断类型？
 
 可以通过`x is T`的语法， 通过这个判断可以动态决定那些非原生类型
 
@@ -254,7 +254,9 @@ function initialize() {
 
 ### ?. 运算符
 
-Optional Chain，?.前面的部分如果为空就不执行后面的，直接返回undefined
+`Optional Chain`，?.前面的部分如果为空就不执行后面的，直接返回undefined
+
+注意：Optional Chain并不是ts的特性而是ES2020的特性，ts是超集所以支持
 
 ```javascript
 const val = a?.b;
@@ -289,3 +291,24 @@ console.log(baz); // 输出：0
 ### | 分隔符
 
 与&是相反的，联合类型就是或的关系。用于限制类型的范围
+
+## 如何实现ts函数的重载
+
+使用以下的固定格式，前面的函数**只写定义不写实现**，用出入参数类型来做区分，中间不能插入任何别的东西。
+
+最后写函数的实现，需要去判断下参数的类型，然后分别做处理。 实际编译出来只保留最后函数的实现
+
+```javascript
+function toArray(value: number): number[]
+function toArray(value: string): string[]
+function toArray(value: number | string) {
+    if (typeof value == 'string') {
+        return value.split('');
+    } else {
+        return value.toString().split('').map(item => Number(item));
+    }
+}
+console.log(toArray(123)); // 根据传入不同类型的数据 返回不同的结果
+toArray('123');
+```
+

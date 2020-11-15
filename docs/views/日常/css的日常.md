@@ -83,10 +83,10 @@ categories:
 
 9. `flex-basis`,表示设置flex-grow和flex-shrink之前，item实际的宽度，默认是**auto**，也就是根据item的width或内容决定
 
-   1. 当有剩余空间时，设置flex-basis，with不起作用
+   1. 当有剩余空间时，设置flex-basis，width不起作用
       <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200709184937503.png" alt="image-20200709184937503" style="zoom:80%;" />
 
-   2. 当没有剩余空间时，设置flex-basis，with不起作用，item会随比例缩小，7比其他的宽一些是因为它是150，别的是100，同比例缩小
+   2. 当没有剩余空间时，**设置flex-basis，width不起作用**，item会随比例缩小，7比其他的宽一些是因为它是150，别的是100，同比例缩小
       <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200709185104038.png" alt="image-20200709185104038" style="zoom:80%;" />
 
    3. 当flex-basis设为**0**时，item上的宽度完全无效，item的实际宽度取决于内容的实际宽度（前提是没有overflow），第二flex-grow是不是0，如果是0那就是内容的宽度，不是的话在有剩余空间的情况下由剩余空间分配决定。
@@ -103,6 +103,12 @@ categories:
    
 
 <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200708140744370.png" alt="image-20200708140744370" style="zoom:80%;" />
+
+10. overflow 在flex中的影响， 有时候会出现非常诡异的宽高，我即使设置width但是没有生效，此时如果元素是个flex元素，可能问题不在它本身，而是在它的兄弟节点，如果兄弟节点配置了flex-basis为auto或者flex: auto，此时不管兄弟节点有没有配overflow, 当兄弟节点的内容大于了本来的剩余空间之后，还会继续扩张。原因是当flex-basis为auto时，认为元素的宽度是由元素自己决定，如果元素的实际宽度大了，就会不受控去挤占别的空间
+11. 想要flex元素的表现符合预期，**最好在**每个子元素（设置了任意flex/flex-bais/flex-grow/flex-shrink） 外面加overflow
+12. 只要设置了flex-basis（非auto）， 那么width将无效
+
+
 
 [CSS Flexbox 可视化手册](https://zhuanlan.zhihu.com/p/56046851?edition=yidianzixun&utm_source=yidianzixun&yidian_docid=0LDQZWhi&yidian_s=&yidian_appid=oppobrowser2)
 
