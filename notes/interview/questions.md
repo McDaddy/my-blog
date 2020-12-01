@@ -28,6 +28,7 @@
   - [ ] eventloop的流程？
   - [ ] web worker，service worker
   - [ ] 对模块的理解 ESModule vs CommonJS
+  - [ ] poly-fill
   
 - [ ] CSS基础
 
@@ -46,6 +47,7 @@
   - [ ] 什么是同源策略
   - [ ] 跨域的方法
   - [ ] CSRF
+  - [ ] 缓存
 
 - [ ] React基础
 
@@ -55,12 +57,14 @@
   - [ ] 什么是SSR? 同构？优势？
   - [ ] 合成事件，能异步访问event么？
   - [ ] 如何渲染大数据量的列表？
-  - [ ] immutablejs
+  - [ ] immutablejs/immer的原理
 
 - [ ] 前端工程化
 
   - [ ]  用过typescript？ unknown和any区别 never 泛型？
   - [ ]  webpack 编译打包优化
+  - [ ]  Webpack chunk module的关系
+  - [ ]  loader plugin的区别
   - [ ] 页面性能优化
   - [ ]  异步加载的原理是什么？
   - [ ]  node基础，用过的框架？
