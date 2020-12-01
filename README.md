@@ -2,6 +2,8 @@
 
 Blog created based on vuepress-theme-reco
 
+访问 kuimo.top
+
 ```bash
 # 编译
 npm run build
