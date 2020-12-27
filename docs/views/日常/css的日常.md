@@ -115,3 +115,9 @@ categories:
 ## line-height
 
 `line-height` 1.8什么意思？ 1.8不带单位意思就是1.8em，也等同于180%， 同时lineHeight是可以继承的，如果子元素不设lineHeight而继承父元素的。那么1.8等于子元素自己当前字体的1.8倍，1.8em时等同于父元素的lineHeight计算值。所以尽量不要带em单位。 normalize.css设置line-height默认为1.15，当字体line-height的normal大于1.15就会存在文字显示不全的问题
+
+
+
+## Fixed元素的width
+
+`position: fixed`的元素，当设置它的width为百分比时，它会无条件去按照屏幕宽度计算，如果想要限制它的实际值，需要在它的父元素上设置一个具体的数值，注意不是一个类似百分比的计算值，而`必须`是一个具体的值。然后给这个fixed元素设置width为inherit。
