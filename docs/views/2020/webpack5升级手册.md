@@ -372,6 +372,14 @@ sideEffects是配合tree-shaking的利器。如果能够确保自己的代码与
 
 在本地开发环境下提速稍微明显一些，因为本地代码都是未压缩的，从40MB到10M还是有明显的体感的
 
+### `splitChunks.maxSize`
+
+webpack 5的新属性，大于某个阈值体积的依赖自动分包，总的打包体积直接缩减到5.43MB
+
+![image-20210120135044168](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20210120135044168.png)
+
+![image-20210120135214446](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20210120135214446.png)
+
 ## 包的调整
 
 - 需要强制升级的包
@@ -381,6 +389,7 @@ sideEffects是配合tree-shaking的利器。如果能够确保自己的代码与
 3. html-webpack-plugin
 4. webpack-merge
 5. copy-webpack-plugin (需要改配置结构)
+6. dart-sass 替换 node-sass [Node Sass 弃用，以 Dart Sass 代替](https://zhuanlan.zhihu.com/p/269296061)
 
 - 退休的包
 
