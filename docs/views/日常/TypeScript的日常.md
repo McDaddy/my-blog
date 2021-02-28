@@ -312,3 +312,22 @@ console.log(toArray(123)); // 根据传入不同类型的数据 返回不同的�
 toArray('123');
 ```
 
+
+
+## HTML Event Types
+
+全都从`React`引入
+
+- MouseEvent
+- ChangeEvent
+- DragEvent
+- FocusEvent
+- KeyboardEvent
+- FormEvent
+- TouchEvent
+- CompositionEvent
+- ClipboardEvent
+- AnimationEvent
+- TransitionEvent
+- WheelEvent
+- PointerEvent

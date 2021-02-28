@@ -113,6 +113,37 @@ function outer() {
 }
 ```
 
+理解闭包，首先判断是不是闭包的标准就是**一个函数能否访问它外部的变量**，在一个函数中返回另一个函数，如果这个函数和父函数没有任何变量读取的关系，那也不是闭包。第二，闭包中读到的外部变量当前是多少，取决于外部变量是否被执行改变，e.g.
+
+```javascript
+function createIncrement() {
+  let count = 0;
+  function increment() { 
+    count++;
+  }
+
+  let message = `Count is ${count}`;
+  function log() {
+    console.log(message);
+    console.log(count);
+  }
+  
+  return [increment, log];
+}
+
+const [increment, log] = createIncrement();
+increment(); 
+increment(); 
+increment(); 
+log(); // What is logged?
+```
+
+上面的代码打印，分别是`Count is 0` 和 `3`，明明都是访问到了count这个变量，为什么不同。
+
+原因在于，message这个变量只被执行了一次，也就是初始化的时候，在闭包中`Count is 0`中这个0其实就是一个死的量，只要外部函数不重新执行，它永远不变。而count为什么变成3？ 因为count是被实际改变了，而改变后的count属于一个新的闭包，与之前的隔离
+
+
+
 ## this
 
 主要5种场景，其中前三种最为常见
