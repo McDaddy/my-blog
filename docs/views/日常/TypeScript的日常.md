@@ -331,3 +331,13 @@ toArray('123');
 - TransitionEvent
 - WheelEvent
 - PointerEvent
+
+
+
+```javascript
+  type myType = (s: string | number) => void;
+  const myFunc = (key: string) => {};
+  const foo = (func: myType) => {};
+  foo(myFunc);
+```
+

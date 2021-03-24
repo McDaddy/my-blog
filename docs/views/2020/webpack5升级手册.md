@@ -207,6 +207,25 @@ webpack 5 总体而言配置的随意性更小，同时也提供了更好的错�
 
 如果对plugin感兴趣可以了解一下 [官方文档](https://webpack.js.org/api/compiler-hooks/)
 
+
+
+### 不再直接支持`process.env.xxx`
+
+之前只要用了`DefinePlugin` 就可以直接访问 `process.env.xxx`，但是现在需要额外步骤
+
+```javascript
+// 1. 添加ProvidePlugin
+new webpack.ProvidePlugin({
+	process: 'process/browser',
+}),
+  
+// 2. npm install process
+```
+
+
+
+
+
 ## webpack打包优化
 
 ### thread-loader替换happypack
