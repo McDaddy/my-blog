@@ -17,6 +17,7 @@
   - `Code Spell Checker` 英文拼写检查
   - `ESLint`
   - vscode需要设置save时自动format代码
+  - Tailwind CSS IntelliSense
 - `switch host`或`utools`做手动host切换
 - `nginx` 本地调试做反向代理
 - `Tunnelblick` 隧道用来连接VPN

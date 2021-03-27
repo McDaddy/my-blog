@@ -334,6 +334,78 @@ toArray('123');
 
 
 
+### 条件范型
+
+假设要写一个`promisify`的函数
+
+```javascript
+function promisify<T> (input: T) {
+  if (input instanceof Promise) {
+    return input;
+  }
+  return Promise.resolve(input);
+}
+
+const a = promisify(1); // a: (1 & Promise<any>) | Promise<1>
+```
+
+得到的返回类型不是预期的，会自动判断传入的类型，如果是Promise就直接返回本身，不是则包装一层（`Promise<1>`）
+
+此时就需要ts给我们动态去判断类型，需要用到`条件泛型`
+
+`T extends U ? A : B` 的结构判断一个类型 `T` 是否是类型 `U` 的子类型，是则返回 `A`，不是返回 `B`
+
+如：
+
+```javascript
+type Condition<T> = T extends { name: string } ? string : number;
+
+type Test1 = Condition<{ name: string; value: number }>; // string
+type Test2 = Condition<{ value: number }>; // number;
+```
+
+此时改造下promisify的定义，就可以得到预期的类型
+
+```javascript
+function promisify<T> (input: T): T extends Promise ? T : Promise<T> {
+  // 函数的具体实现
+}
+
+const a = promisify(1); // a: Promise<number>
+```
+
+
+
+### infer
+
+定义一个类型，接受一个T泛型，如果T本身是一个Promise，那么取Promise包装的内部类型，否则取T本身
+
+```javascript
+type Unpromise<T> = T extends Promise<infer U> ? U : T;
+```
+
+一般配合`extends`使用，同理可以得到
+
+```javascript
+// 提取数组项的类型
+type Unarray<T> = T extends (infer U)[] ? U : never;
+
+// 提取函数的返回值类型（TS 已内置）
+type ReturnType<T> = T extends ((...params: any[]) => infer U) ? U : never;
+
+// 提取函数的入参类型（TS 已内置）
+type Parameters<T> = T extends ((...params: P) => infer P) ? P : never;
+
+// 元组第一项的类型，可用在 Hooks 风格的 React 组件中
+type Head<T> = T extends [infer H, ...any[]] ? H : never;
+```
+
+
+
+[TypeScript 夜点心：条件范型](https://zhuanlan.zhihu.com/p/110377116)
+
+
+
 ```javascript
   type myType = (s: string | number) => void;
   const myFunc = (key: string) => {};
