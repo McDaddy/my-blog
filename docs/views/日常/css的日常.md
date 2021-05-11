@@ -121,3 +121,29 @@ categories:
 ## Fixed元素的width
 
 `position: fixed`的元素，当设置它的width为百分比时，它会无条件去按照屏幕宽度计算，如果想要限制它的实际值，需要在它的父元素上设置一个具体的数值，注意不是一个类似百分比的计算值，而`必须`是一个具体的值。然后给这个fixed元素设置width为inherit。
+
+
+
+## z-index
+
+如何创建层叠上下文
+
+- relative/absoult + z-index的组合
+
+- 把透明度 opacity 设置成比 1 小的值
+
+- 把 position 设置为 fixed 或者 sticky （这种情况无需提供 z-index)
+
+- 把 mix-blend-mode 设置为 multiply、hard-light、difference（normal不行🙅）
+
+- 把 z-index 添加到一个带有 **display：flex** 或者 **display： grid** 的容器里
+
+- 使用 transform， filter， clip-path，或者 perpective
+
+- 把 `will-change` 设置为 `opacity` 或者 `transform`
+
+- 通过 `isolation: isolation` 直接创建上下文（这步最简单最纯粹）
+
+z-index只在同层叠上下文有效，如果是跨域了上下文，即使设置成无限大也没用
+
+[z-index 特喵到底是什么？](https://juejin.cn/post/6951640002526707743)

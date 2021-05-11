@@ -24,6 +24,8 @@ requestAnimationFrame与requestIdleCallback
 
 MVVM是什么？
 
+纯函数？副作用？
+
 为什么React要求单向数据流，数据不可变？
 
 hooks对hoc的优势是什么？
@@ -50,7 +52,7 @@ TreeShaking原理？
 
 node基础，用过的框架？
 
-node如何处理CPU密集型的操作？
+node如何处理CPU密集型的操作（并行处理长耗时方法）且不阻塞？
 
 微前端是什么？如何实现
 
