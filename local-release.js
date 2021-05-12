@@ -8,10 +8,10 @@ console.log('清除老文件');
 execSync('rm -rf ./express-test/public', { stdio: 'inherit' });
 
 console.log('开始编译打包');
-execSync('npm run build', { stdio: 'inherit' });
+execSync('npm --prefix ./site run build', { stdio: 'inherit' });
 
 console.log('开始拷贝编译后文件');
-execSync('cp -r public express-test', { stdio: 'inherit' });
+execSync('cp -r ./site/public express-test', { stdio: 'inherit' });
 
 console.log('开始发布');
 execSync('fun deploy -y', { stdio: 'inherit' });

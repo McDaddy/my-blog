@@ -88,7 +88,7 @@ links： 返回所有页面上的a标签
 
 为一个dom元素定义一个事件，三种方式
 
-```react
+```javascript
 // 1. 直接用属性来定义 缺点：视图和逻辑耦合
 <p onclick="showAlert()">点击后弹出 alert </p>
 

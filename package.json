@@ -3,14 +3,12 @@
   "version": "1.0.0",
   "author": "kuimo",
   "scripts": {
-    "dev": "vuepress dev docs",
-    "build": "vuepress build docs",
+    "dev": "vuepress dev . --open --host \"localhost\"",
+    "build": "vuepress build .",
     "release": "node ./local-release.js"
   },
   "devDependencies": {
-    "express": "^4.17.1",
-    "vuepress": "1.4.1",
-    "vuepress-theme-reco": "1.4.5"
+    "express": "^4.17.1"
   },
   "description": "kuimo's frontend blog",
   "dependencies": {

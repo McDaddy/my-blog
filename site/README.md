@@ -1,6 +1,8 @@
 ---
 home: true
 bgImage: '/bgImage.JPG'
+# heroText: vuepress-theme-reco
+# tagline: A simple and beautiful vuepress blog theme.
 # heroImage: /hero.png
 # heroImageStyle: {
 #   maxWidth: '600px',
@@ -11,7 +13,7 @@ bgImage: '/bgImage.JPG'
 #   borderRadius: '1rem',
 # }
 bgImageStyle: {
-  height: '400px'
+  height: '450px'
 }
 isShowTitleInHome: false
 actionText: Guide

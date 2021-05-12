@@ -18,7 +18,7 @@ categories:
 
 ## 原生事件 vs 合成事件
 
-```react
+```javascript
 ...
 const btn = document.getElementById('native-btn');
 btn.addEventListener('click', (e) => {
@@ -128,7 +128,7 @@ const onClick = () => {
 
 因为react用的是合成事件，为了节约内存都会在事件回调结束之后销毁这个事件，如果想要异步还能访问这个事件，需要调用`persist`接口。[Event Pooling](https://reactjs.org/docs/events.html#event-pooling)
 
-```react
+```javascript
 export default () => {
   const onClick = e => {
     console.log(e.target.innerText);

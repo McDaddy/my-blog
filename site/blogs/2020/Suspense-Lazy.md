@@ -76,7 +76,7 @@ export const asyncComponent = (getComponent: Function) => {
 
 所以具体实现就是
 
-```react
+```javascript
 // 定义路由
 {
   path: 'settings',
