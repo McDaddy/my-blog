@@ -10,6 +10,8 @@ Promise.all 如果不想某个promise失败就退出，怎么操作？
 
 eventloop的流程？
 
+每一帧的流程？
+
 web worker，service worker区别
 
 requestAnimationFrame与requestIdleCallback

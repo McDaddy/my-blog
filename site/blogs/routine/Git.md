@@ -117,6 +117,12 @@ git push prod --delete feature/remove-ws
 git fetch upstream && git reset --hard upstream/master && git push -f
 ```
 
+## 将代码推送到不同的源
+
+```sh
+git push -u origin hotfix/release-1.0 // 在推送时强制指向新的源
+```
+
 ## 强制刷新远程分支列表
 
 ```shell

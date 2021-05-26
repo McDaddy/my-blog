@@ -255,3 +255,84 @@ const obj = {
 obj.next();
 ```
 
+
+
+## DefineProperty vs Proxy
+
+Object.defineProperty 语法
+
+```javascript
+Object.defineProperty(obj, prop, descriptor)
+
+obj: 要在其上定义属性的对象。
+
+prop:  要定义或修改的属性的名称。
+
+descriptor: 将被定义或修改的属性的描述符。
+```
+
+descriptor包含`configurable/enumerable/value/writable/get/set`
+
+setter的缺陷是必须单独声明一个变量去存储value，否则就会无限循环，同时它不能监听到新的属性，以及数组中的操作
+
+优点是兼容性好
+
+![img](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/v2-726ca7d57a071451d29b5655f88aab59_1440w.jpg)
+
+Proxy 语法
+
+```javascript
+var target = function () { return 'I am the target'; };
+var handler = {
+  apply: function () {
+    return 'I am the proxy';
+  }
+};
+
+var p = new Proxy(target, handler);
+
+p();
+// "I am the proxy"
+```
+
+除了get set外，功能更多，共有13种操作，本质就是能实现各种拦截，比如has 就是拦截in这样的迭代操作，apply拦截函数的调用。 天然得支持对象中属性的添加删除，以及数组的增删改
+
+![img](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/v2-be86ac3d023b8c98c9d25a75f52c1109_1440w.jpg)
+
+```javascript
+var array = [5,4,3,2,1];
+var handler = {
+  set: function (target, prop, value) {
+    console.log(`set ${prop} with value ${value}`);
+    target[prop] = value;
+    return true;
+  },
+  get: function (target, prop) {
+    	// 利用get甚至可以拦截方法的调用
+      if (prop === 'push') {
+          return (v) => {
+              console.log('invoke push');
+              return target[prop];
+          }
+      }
+      return target[prop];
+  }
+};
+
+var proxyArray = new Proxy(array, handler);
+// p[1] = 2;
+
+// 7种会改变数组本身的方法，都会被proxy拦截
+// 但是并不是单次拦截，比如说sort，它其实本质就是在原数组中移动位置，这个移动可能要多次完成，对proxy来说每次移动都是一次set，所以会触发多次set拦截
+// 同时还会拦截到对数组length属性的修改
+proxyArray.push(1);
+proxyArray.splice(2, 0, 3);
+proxyArray.sort();
+proxyArray.reverse();
+proxyArray.pop();
+proxyArray.shift(1);
+proxyArray.unshift(6)
+
+console.log(proxyArray);
+```
+

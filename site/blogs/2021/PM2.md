@@ -1,3 +1,12 @@
+---
+title: PM2实战体验
+date: 2021-04-26
+tags:
+ - node
+categories:
+ - 前端工程化
+---
+
 ## 什么是PM2？
 
 PM2是最常用的`node`进程管理工具之一，它可以提供node.js应用管理，如自动重载、性能监控、负载均衡等。同类工具有Supervisor、Forever等。

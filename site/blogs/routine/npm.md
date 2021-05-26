@@ -147,6 +147,18 @@ npm i
 
 `npm pack` 命令可以快速打出一个没有node_modules的tgz包
 
+## 如何处理依赖平台底层的包
+
+比如`node-sass`和`esbuild`这两个库都是依赖底层c++的，如果拿着MacOS的node_modules去RedHat或者windows直接编译就会报错。此时就需要通过命令做个转化
+
+```shell
+npm rebuild node-sass
+```
+
+
+
+
+
 ## 参考
 
 [前端工程化 - 剖析npm的包管理机制](https://juejin.im/post/5df789066fb9a0161f30580c)
