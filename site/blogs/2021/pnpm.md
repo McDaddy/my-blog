@@ -15,17 +15,17 @@ categories:
 
 ## 前端包管理的那些坑
 
-### 速度
+### 缓慢的安装速度
 
-每次【clone仓库/同事改了包依赖/更新包版本】后都要做一遍`npm i`，即便是在有缓存的情况下，速度依然堪忧，一个如erda-ui这种体量的`monorepo`工程几乎需要**10分钟**来做依赖初始化
+每次【clone仓库/同事改了包依赖/更新包版本】后都要做一遍`npm i`，一个如erda-ui这种体量的`monorepo`工程在如果没有缓存的情况下几乎需要**10分钟**来做依赖初始化，即便是在有缓存的情况下，速度依然堪忧。
 
-### 巨型的`node_modules`
+### 巨型的node_modules
 
 你是否已经对前端本地工程文件夹动不动上G的空间占用习以为常了？明知道这些库我下载过，但是没办法还是需要在node_modules里再安一遍，实在是资源浪费。同时，空间浪费的另一个原因是npm的安装非常容易造成冗余，如下图所示，libA与libB无法共享一份`libD@1.0.1`，所以它只能冗余得占据我们两份的硬盘空间。
 
 <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20210613153146992.png" alt="image-20210613153146992" style="zoom:50%;" />
 
-### npm的嵌套黑洞 
+### npm的嵌套黑洞
 
 熟悉npm或yarn包管理的同学应该都多少了解过npm的嵌套黑洞，以下面的包结构为例
 
@@ -66,11 +66,11 @@ node_modules
 
 如下的两个包依赖了同一个包的不同版本，libA引用libC@1.0.1，libB引用了libC@1.0.2，那么最终安装的结果会是下图的哪种情况呢？
 
-<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20210613155631789.png" alt="image-20210613155631789" style="zoom:50%;" />
+![image-20210617110952247](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20210617110952247.png)
 
 
 
-答案是**都有可能**。取决于 libA 和 libB 在 `package.json`中的位置，如果 libA 声明在前面，那么就是前面的结构，否则是后面的结构。
+答案是**都有可能**。取决于 libA 和 libB 在 `package.json`中的位置，如果 libA 声明在前面，那么就是左边的结构，否则是右边的结构。
 
 为了规避这样的问题，才出现了我们熟悉的`lock`文件（当然它更重要的作用是锁定版本）
 
@@ -100,7 +100,7 @@ node_modules
 
 这里就要拿出我们非常熟悉的也是最主流的`npm`和`yarn`两个同行来做对比了。从速度和磁盘效率两个维度做对比
 
-### 速度
+### 依赖下载快
 
 <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/alotta-files.svg" alt="Graph of the alotta-files results" style="zoom: 50%;" />
 
@@ -108,7 +108,7 @@ node_modules
 
 发现不管在何种预设条件下，pnpm的安装速度都是大大优于`npm`/ `yarn`以及`yarn`的`PnP`安装模式。总体而言至少快2~3倍以上
 
-### 空间
+### 空间占用小
 
 熟悉Java开发的同学应该都知道`Maven`，我们每个Java工程都有大量的依赖，但是**并不会**下载到工程目录本身来，而是下载到一个集中的用户目录下，然后做动态链接。而这个思想在pnpm上也得到了完美的体现
 
@@ -129,7 +129,7 @@ node_modules
 
 - 由于pnpm并不是把依赖直接安装在工程目录的，即使删了出工程仓库，重新安装依赖可以直接从.pnpm-store取，做到数秒内完成
 
-### 代码安全
+### 规避代码安全问题
 
 pnpm是如何解决上面所述的代码安全问题呢？
 
@@ -183,13 +183,13 @@ pnpm i pkgA  # 仅给当前模块添加依赖
 
 ![image-20210528180630309](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20210528180630309.png)
 
-## 实战篇
+## 实战指南
 
 这里不讲pnpm的基础操作，具体可以翻阅[官方文档](https://pnpm.io/hu/cli/add)，接下来就讲讲我们在实际落地pnpm中可能需要注意的问题
 
 ### 配合webpack的问题
 
-1. `resolve.symlinks`这个属性不能设置为false，否则无法通过符合链接找到相应的node_modules
+1. `resolve.symlinks`这个属性不能设置为false，否则无法通过符号链接找到相应的node_modules
 2. `resolve.modules`这个属性不要写死`['node_modules']`，建议去掉这个配置，因为如果这样写webpack就只会限定从这个目录去找node_modules，当在monorepo的情况下，`.pnpm`目录其实会被放在工程根的`node_modules`中，导致无法链接到资源文件，去除这个配置后，webpack会自动去找相应的资源
 3. 有时候我们除了需要去编译自己的`src`文件，还需要`include`一些未编译的包资源， 比如下面这段loader配置，会需要额外include一个包
 
@@ -204,7 +204,7 @@ pnpm i pkgA  # 仅给当前模块添加依赖
 },
 ```
 
-此时`path.resolve(__dirname, 'node_modules/@terminus/dashboard’)`得到的路径其实是符号链接所在的目录，如果编译就会报出无法识别此资源，请添加合适loader的提示。原因出在哪里？ 因为在src中引用到这个包，在webpack编译时，当需要解析`@terminus/dashboard`这个包时，已经通过链接自动寻址到了`.pnmp`下的对应资源，此时发现资源文件还是个ts并不是预期的js，此时查看`include`配置，发现虽然配置了一个目录， 但与当前`babel-loader`正要解析的资源目录不符
+此时`path.resolve(__dirname, 'node_modules/@terminus/dashboard')`得到的路径其实是符号链接所在的目录，如果编译就会报出无法识别此资源，请添加合适loader的提示。原因出在哪里？ 因为在src中引用到这个包，在webpack编译时，当需要解析`@terminus/dashboard`这个包时，已经通过链接自动寻址到了`.pnmp`下的对应资源，此时发现资源文件还是个ts并不是预期的js，同时查看`include`配置，发现虽然配置了一个目录， 但与当前`babel-loader`正要解析的资源目录不符
 
 ```javascript
 // 你include的配置
@@ -215,7 +215,7 @@ include: [
 ~/work/GitHome/erda-ui/node_modules/.pnpm/@terminus+dashboard@1.2.2_c08939748a2e52995f06e5a6be8616f9
 ```
 
-解决方法，利用`fs`模块的`realpathSync`方法替换软链接路径，此方法可以取到软连接后的真实地址。
+解决方法，利用`fs`模块的`realpathSync`方法替换软链接路径，此方法可以取到软链接后的真实地址。
 
 ```javascript
 include: [
@@ -225,7 +225,7 @@ include: [
 
 ### package.json
 
-在默认全局配置下，安装包版本后，都会更新在package.json中。除了安装如`latest`这样的tag，此外都和npm的行为有所区别，个人认为这样是更符合直觉和预期的，既然输入了一个具体版本，在一般情况下都是为了维持或者回退到某个版本，如果在没有lock文件的情况下他人去安装，就很可能因为**semver**规则而安装上错误的版本。
+在默认全局配置下，安装包版本后，都会更新在package.json中。除了安装如`latest`这样的tag，此外都和npm的默认行为有所区别，个人认为这样是更符合直觉和预期的，既然输入了一个具体版本，在一般情况下都是为了维持或者回退到某个版本，如果在没有lock文件的情况下他人去安装，就很可能因为**semver**规则而安装上错误的版本。
 
 ```shell
 # npm
@@ -239,7 +239,7 @@ pnpm i lodash@latest    => "lodash": "^4.17.21"
 pnpm i lodash@4.17.x    => "lodash": "4.17.x" #注意
 ```
 
-此前在使用yarn/npm做包管理时，时长因为`registry`等原因，即使没有改变依赖，不同的机器跑完`npm i`之后还是会冗余得更新lock文件，而这个问题在使用pnpm之后都能得到完美得解决。配置好`pnpm-workspace.yaml`文件
+此前在使用yarn/npm做包管理时，时常因为`registry`等原因，即使没有改变依赖，不同的机器跑完`npm i`之后还是会冗余得更新lock文件，而这个问题在使用pnpm之后都能得到完美得解决。配置好`pnpm-workspace.yaml`文件
 
 ```yaml
 packages:
@@ -273,11 +273,7 @@ packages:
 
 - 从安装速度角度来说，pnpm确实能大幅提升安装效率，以erda-ui初始化为例
 
-|                        | npm/yarn                      | pnpm    |
-| ---------------------- | ----------------------------- | ------- |
-| 本地全量安装（无缓存） | 8~10分钟                      | 4~5分钟 |
-| 本地全量安装（有缓存） | 6分钟内                       | 2分钟内 |
-| GitHub codecov         | 3分半到4分钟，npm ci 40秒左右 | 23秒    |
+![image-20210617113531184](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20210617113531184.png)
 
 同时在做CI/CD时也能提供类似`npm ci`的功能，如果package.json内容与lock不匹配将会中断流程
 
