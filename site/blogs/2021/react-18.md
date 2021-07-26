@@ -6,8 +6,6 @@ tags:
 categories:
  - React
 
-
-
 ---
 
 
@@ -31,7 +29,7 @@ ReactDOM.render(<App />, document.getElementById('root'));
 const root = ReactDOM.createRoot(document.getElementById('root')!);
 root.render(<App />);
 ```
-
+<!-- more -->
 ### 批量更新
 
 React 18 以前，在React合成事件管理中的`setState`是根据`isBatchUpdate`这个标志来决定是否批量更新的，当合成事件执行完毕，`isBatchUpdate`就会被设回`false`，所以在`setTimeout`中的setState都是同步的，不会发生批量更新。所以下来的代码在同步模式下的结果是`[0, 0, 2, 3]`

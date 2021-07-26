@@ -8,7 +8,8 @@
     "release": "node ./local-release.js"
   },
   "devDependencies": {
-    "express": "^4.17.1"
+    "express": "^4.17.1",
+    "vuepress": "^1.8.2"
   },
   "description": "kuimo's frontend blog",
   "dependencies": {
