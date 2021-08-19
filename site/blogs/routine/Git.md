@@ -174,3 +174,21 @@ git config -e 可以直接编辑git的local配置
 git config -l 列出所有git配置
 ```
 
+## 查看所有local分支的源
+
+```shell
+git branch -vv
+```
+
+## 清除已经在源上删除了的本地分支
+
+通过`git fetch -p && git branch -vv` 可以看到哪些分支的orgin已经是gone了
+
+![image-20210812200803517](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20210812200803517.png)
+
+```shell
+git fetch -p && for branch in $(git for-each-ref --format '%(refname) %(upstream:track)' refs/heads | awk '$2 == "[gone]" {sub("refs/heads/", "", $1); print $1}'); do git branch -D $branch; done
+```
+
+
+
