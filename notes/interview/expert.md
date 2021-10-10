@@ -1,12 +1,16 @@
 离职原因？
 
+目前工作状态？
+
 英语水平？
 
-async、await的实现原理？
+async、await的实现原理？ Array.forEach中可以await吗
 
 catch后面能不能跟then？
 
 Promise.all 如果不想某个promise失败就退出，怎么操作？
+
+?? .? !.的作用
 
 eventloop的流程？
 

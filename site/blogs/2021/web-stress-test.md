@@ -124,6 +124,10 @@ brew install jmeter
 
 ![image-20210819133700568](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20210819133700568.png)
 
+各个字段的意义如下
+
+![img](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/v2-ad9ae09beeb8c9942d72cced84341174_1440w.jpg)
+
 会有0.13%的错误发生。检查了下server的log并没有错误日志，暂时断定是网关这里报的错。
 
 最后查看下容器监控，在200的并发下，

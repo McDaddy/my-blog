@@ -180,7 +180,7 @@ git config -l 列出所有git配置
 git branch -vv
 ```
 
-## 清除已经在源上删除了的本地分支
+## 清理已经在源上删除了的本地分支
 
 通过`git fetch -p && git branch -vv` 可以看到哪些分支的orgin已经是gone了
 
@@ -190,5 +190,14 @@ git branch -vv
 git fetch -p && for branch in $(git for-each-ref --format '%(refname) %(upstream:track)' refs/heads | awk '$2 == "[gone]" {sub("refs/heads/", "", $1); print $1}'); do git branch -D $branch; done
 ```
 
+## 如何查看被删除或者被重命名的文件历史
 
+```shell
+// 查找出所有文件，从中过滤出所有被删除文件，再过滤出大概的名字，这样就能找到被删除前的路径信息
+git log --diff-filter=D --summary | grep delete | grep <file-path-name>
+// 可以列出所有文件历史，即使是已经删除的
+git log --all --full-history -- <file-path-name>
+// 如果文件中间被重命名了，加上follow参数，可以一直追溯到最源头
+git log --all --follow --full-history -- <file-path-name>
+```
 

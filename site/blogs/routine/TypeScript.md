@@ -28,7 +28,7 @@ type PartialPoint = PartialPointX | PartialPointY;
 type Data = [number, string];
 ```
 
-  3 . 都可以继承，但语法不同。 可以互相混着继承
+  3 . 都可以继承（type其实是组合），但语法不同。 可以互相混着继承，注意interface是可以多重集成的
 
 ```typescript
 interface PartialPointX { x: number; }
@@ -412,6 +412,159 @@ type Head<T> = T extends [infer H, ...any[]] ? H : never;
   const foo = (func: myType) => {};
   foo(myFunc);
 ```
+
+### extends的特性
+
+`extends`（非interface A extends B， 这里特指条件类型） 当前面的参数为联合类型时则会分解（依次遍历所有的子类型进行条件判断）联合类型进行判断。然后将最终的结果组成新的联合类型。
+
+```javascript
+// 如 结果为type A3 = 1 | 2
+// 原因是extends是将T的所有可能子类型都跟'x' 判断一遍，第一个x成功了。第二个y失败了
+type P<T> = T extends 'x' ? 1 : 2;
+type A3 = P<'x' | 'y'>
+
+// 规避的方法是，用一个中括号括起来
+type P<T> = [T] extends ['x'] ? 1 : 2;
+/**
+ * type A4 = 2;
+ */
+type A4 = P<'x' | 'y'>
+  
+// 1 extents A 能不能成立，取决于1能不能赋值给A
+// 即 const x:A = 1 能不能成立， 如果能成立就符合extends
+type A = 1 | 2;
+type B = 3 extends A ? '1' : '2'; // 2
+type B = 1 extends A ? '1' : '2'; // 1
+```
+
+### 可赋值性/协变/逆变/双向协变
+
+```javascript
+// 可赋值性 B继承于A, B类型可以赋值给A类型，反之不能
+interface A { name: string }
+interface B extends A { age: number }
+
+let a: A;
+let b: B;
+
+a = b; // OK 因为A是父，约束更宽泛，具体的可以赋值给宽泛的，即将多的属性赋给A并不影响A的定义和使用，只要保证有name属性那就是A
+b = a; // error 因为A是父，A可能没有B中有的属性，所以是不能赋给B
+
+// 协变
+let aArr: A[];
+let bArr: B[];
+
+aArr = bArr; // OK 原先的类型通过了一层Array的泛型包装后，依然保持着可赋值性，原因和上面相同
+bArr = aArr; // error 
+
+// 逆变 和协变相反，都是经过一层构造关系的转换后，继承关系反转了
+let aFunc: (x: A) => void;
+let bFunc: (x: B) => void;
+
+aFunc = bFunc; // error  假设bFunc中用到了age, 然后可以正确赋值给aFunc, 此时调用时传入{ name: '1' },是不会报错的，但实际执行的时候就会报错，所以是不安全的
+bFunc = aFunc; // OK 相反因为b是更具体的，虽然aFunc不会用到age这个参数，但是如果入参多传一个age也不会对结果产生影响，所以是安全的
+
+// 双向协变 事实上我们实际开发中遇到的都是双向协变，因为这是ts的默认策略，典型的就是Event的实现
+// 虽然我们传入的是更具体的MouseEvent，就等于上例中把bFunc赋值给aFunc，但这里并不会报错，反而这是一种设计模式的实现
+// tsconfig.js中可以调整strictFunctionType来严格控制协变逆变
+// lib.dom.d.ts中EventListener的接口定义
+interface EventListener {
+  (evt: Event): void;
+}
+// 简化后的Event
+interface Event {
+  readonly target: EventTarget | null;
+  preventDefault(): void;
+}
+// 简化合并后的MouseEvent
+interface MouseEvent extends Event {
+  readonly x: number;
+  readonly y: number;
+}
+
+// 简化后的Window接口
+interface Window {
+  // 简化后的addEventListener
+  addEventListener(type: string, listener: EventListener)
+}
+
+// 日常使用
+window.addEventListener('click', (e: Event) => {});
+window.addEventListener('mouseover', (e: MouseEvent) => {});
+
+```
+
+
+
+### 谓词
+
+```javascript
+// 刚碰到一个ts的问题，想当然觉得原生filter是可以自动判断类型的
+const a = [999, undefined];
+// 此时虽然filter显式得过滤了undefined，但是b的ts类型还是number | undefined []
+let b = a.filter((item) => !!item);
+// 加上 is 谓词之后才能正常收窄到number
+let b = a.filter((item): item is number => !!item);
+// 原理就是filter只关心你传进去的函数返回true/false，在大多数情况下它没法自动推断到底过滤的是内容还是类型，所以不会自动改类型
+```
+
+
+
+
+
+### class type
+
+有时候会纠结一个class到底是一个type还是它自己本身， 总结一下
+
+- 当修饰class实例的时候，就是用这个Class本身，他包含所有实例方法和原型方法
+- 当修饰类型本身时，要用typeof Class，这里就包含类的静态方法和属性等
+
+```javascript
+/**
+ * 定义一个类
+ */
+class People {
+  name: number;
+  age: number;
+  constructor() {}
+}
+
+// p1可以正常赋值
+const p1: People = new People();
+// 等号后面的People报错，类型“typeof People”缺少类型“People”中的以下属性: name, age
+const p2: People = People;
+
+// p3报错，类型 "People" 中缺少属性 "prototype"，但类型 "typeof People" 中需要该属性
+const p3: typeof People = new People();
+// p4可以正常赋值
+const p4: typeof People = People;
+
+```
+
+
+
+### as in type定义
+
+如何实现一个条件Pick， 如： 只Pick出类型中类型为string的属性
+
+```javascript
+interface Example {
+  a: string;
+  b: string | number;
+  c: () => void;
+  d: {};
+}
+
+type ConditionalPick<T, K> = {
+  [P in keyof T as (T[P] extends K ? P : never)]: T[P]
+}
+
+// 测试用例：
+type StringKeysOnly = ConditionalPick<Example, string>;
+//=> {a: string}
+```
+
+其中在定义中用到了as，非常神奇。 说明as不仅可以用在强转变量的类型，还能强转泛型T的类型
 
 
 

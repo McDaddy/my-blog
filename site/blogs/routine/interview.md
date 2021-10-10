@@ -515,3 +515,21 @@ function go (url) {
 
 [你的Tree-Shaking并没什么卵用](https://juejin.cn/post/6844903549290151949#comment)
 
+
+
+## 手写一个深拷贝
+
+```javascript
+export function cloneDeep(value) {
+  if (Array.isArray(value)) {
+    return value.map((child) => cloneDeep(child))
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, cloneDeep(v)]))
+  }
+
+  return value
+}
+```
+
