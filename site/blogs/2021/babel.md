@@ -15,9 +15,11 @@ Babel 是一个 JavaScript 编译器。（官网定义）
 
 用通俗的话解释就是它主要用于将高版本的JavaScript代码转为向后兼容的JS代码，从而能让我们的代码运行在更低版本的浏览器或者其他的环境中。
 
-babel内置的解析引擎叫**Babylon**
+babel内置的解析引擎叫**Babylon** (fork from acorn)
 
 目前主流用的Babel是版本7或者8
+
+<!-- more -->
 
 ## @babel/core
 
@@ -106,7 +108,7 @@ tom.say();
 
 可以看到箭头函数通过严格模式变成了普通函数的语法。Class变成了function的语法，但也生成了几个类相关的辅助函数来实现class的功能。
 
-同时我们可以通过指定`targets`来控制转换的粒度，比如如下设置，转换出来的代码和上面的源码是没区别的，以为Chrome最新版肯定是支持箭头函数和class的
+同时我们可以通过指定`targets`来控制转换的粒度，比如如下设置，转换出来的代码和上面的源码是没区别的，因为Chrome最新版肯定是支持箭头函数和class的
 
 ```javascript
 {
@@ -261,13 +263,13 @@ var promise = new _promise["default"](function (resolve, reject) {
 
 @babel/runtime-corejs3 其中包含core-js， helpers和regenerator
 
-**注意：**一旦给@babel/plugin-transform-runtime指定了corejs，那么就不需要安装@babel/runtime了，因为@babel/runtime-corejs3已经包含了helpers了
+**注意**: 一旦给@babel/plugin-transform-runtime指定了corejs，那么就不需要安装@babel/runtime了，因为@babel/runtime-corejs3已经包含了helpers了
 
 **注意**：虽然这样看起来很美好，但有个巨大的问题，就是@babel/runtime-corejs3会无视浏览器targets，也就是说，即使是为最新的Chrome编译，依然会把所有用到的垫片放进去。所以绝对不是理想的方案
 
 ## regenerator-runtime
 
-可以理解为实现Generator以及async/await的垫片，它是被包含在@babel/runtime中的
+可以理解为实现Generator以及async/await的helper函数，它是被包含在@babel/runtime中的
 
 ## 总结
 
@@ -277,6 +279,7 @@ var promise = new _promise["default"](function (resolve, reject) {
 - @babel/runtime
 - @babel/plugin-transform-runtime
 - @babel/preset-env
+- core-js@3
 
 ```javascript
 {

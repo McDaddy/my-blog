@@ -46,7 +46,7 @@ react-router原理简述，如何监听路由？
 
 loader plugin的区别？
 
-babel是什么？什么时候需要poly-fill
+babel是什么？什么时候需要poly-fill？babel-polyfill和core-js的关系？如何指定polyfill
 
 webpack 编译打包（性能）优化
 

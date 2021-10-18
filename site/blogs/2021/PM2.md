@@ -11,6 +11,8 @@ categories:
 
 PM2是最常用的`node`进程管理工具之一，它可以提供node.js应用管理，如自动重载、性能监控、负载均衡等。同类工具有Supervisor、Forever等。
 
+<!-- more -->
+
 ## 如何安装
 
 须全局安装

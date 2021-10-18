@@ -14,6 +14,8 @@ categories:
 
 由于近期将`erda`前端的web服务器由`nginx`替换成了`nestjs`写的node server，在保证功能不变的情况下，众所周知node单线程的特性，相比nginx的C，适合高IO但CPU低密集型的场景，如果node代码中有阻塞进程的逻辑存在那将可能造成整个网站无法正常访问。所以用高并发的压力测试来检验node server的性能在真正上线前就显得尤为必要。
 
+<!-- more -->
+
 ## 工具
 
 这里选用[JMeter](https://jmeter.apache.org/) ，主要原因是它功能全面同时又是免费的，相较**LoadRunner**等老牌压测工具更易获得
