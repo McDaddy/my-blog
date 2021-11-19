@@ -533,3 +533,14 @@ export function cloneDeep(value) {
 }
 ```
 
+
+
+## Reflect到底有啥用？
+
+Reflect存在的价值
+
+1. 将一系列Object上面的方法移到Reflect上，将来这些方法在Object上将不存在，比如`Object.defineProperty`
+2. 操作更优雅，比如`Object.defineProperty`如果出现错误就会报错，而`Reflect.defineProperty`就只是返回false
+3. 让操作对象的编程变为函数式编程，比如`if(‘a’ in obj)`是命令式的，`Reflect.has(obj, ‘a’)`是函数式的
+4. 保持与Proxy的方法一一对应
+

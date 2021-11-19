@@ -1,8 +1,23 @@
+---
+title: 前端性能指标
+date: 2021-10-20
+tags:
+ - 测试
+categories:
+ - 前端工程化
+
+
+---
+
+
+
 ## 前端性能指标
 
 相对于功能性的实现，web性能这一块就我们日常工作中比较容易被忽略的一部分。就这部分而言，除了一些大厂明星级应用，一般而言不会由产品方主动去要求前端做到什么程度，一般只要不是卡得很明显就不会有问题，所以前端性能的提升主要就还是依赖我们前端的自律性和责任感。
 
 那么什么是好的web性能呢？用哪些指标去衡量一个前端应用性能的优劣？其中哪些又是核心的指标？接下来就一一展开
+
+<!-- more -->
 
 ### 什么是前端性能
 
@@ -22,9 +37,9 @@
 
 ### 主要的前端性能指标
 
-![image-20211004175529449](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20211004175529449.png)
-
 #### 加载相关
+
+![image-20211004175529449](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20211004175529449.png)
 
 ##### Time to First Byte（TTFB）
 
@@ -44,15 +59,17 @@ DOMContentLoaded 事件触发的时间。
 domContentLoadedEventEnd - fetchStart
 ```
 
-### Load（L）
+##### Load（L）
 
-onLoad 事件触发的时间。页面所有资源都加载完毕后，包含外链的css和图片，已经js执行中需要异步加载的资源，onLoad 事件才被触发。
+onLoad 事件触发的时间。页面所有资源都加载完毕后，包含外链的css和图片，以及sjs执行中需要异步加载的资源，onLoad 事件才被触发。
 
 ```javascript
 loadEventStart - fetchStart
 ```
 
 ![image-20211004195002350](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20211004195002350.png)
+
+
 
 #### 内容呈现相关
 
