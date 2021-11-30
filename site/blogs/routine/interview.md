@@ -544,3 +544,15 @@ Reflect存在的价值
 3. 让操作对象的编程变为函数式编程，比如`if(‘a’ in obj)`是命令式的，`Reflect.has(obj, ‘a’)`是函数式的
 4. 保持与Proxy的方法一一对应
 
+
+
+## useEffect中的return是什么时候执行的
+
+useEffect中的return有两种执行实际
+
+- 组件卸载
+- 当前effect执行前，用来清除上一个effect，下面的demo是个非常好的例子
+
+[demo](https://codesandbox.io/s/jvvkoo8pq3?file=/src/index.js)
+
+在return方法中，其实相当于是可以修改上一个闭包中的值，与当前effect的闭包是隔离开的。

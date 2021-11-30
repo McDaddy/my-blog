@@ -17,32 +17,35 @@ P1 问题总结
 code review
 
 ```javascript
-{} as XXX  时需要实事求是， 应该是Partial<XXX>
-组件名和文件名不对应
-props类型要写成 IXXXProps
-interface type 首字母大写
-不要滥用 _ 临时变量
-尽量不要使用import * as XX from 'xx' 这种语法， 因为这样对tree shaking很不友好，用什么import什么，把这个解构放上面去， 然后就算要保持现状，只有组件和class可以大写开头，其他都应该小写开头tagService
-边界不清，A组件带逻辑的内容直接export给B用
-命名规范 + 注释规范
-flex为1的兄弟组件。 都要设置宽度或者truncate
+1. {} as XXX  时需要实事求是， 应该是Partial<XXX>，如果用Obj尽量加上泛型
+2. 不要滥用 _ 临时变量
+3. 尽量不要使用import * as XX from 'xx' 这种语法， 因为这样对tree shaking很不友好，用什么import什么，把这个解构放上面去
+4. 只有组件和class可以大写开头，其他都应该小写开头tagService
+5. interface 不用加I
+6. 组件名和文件名不对应
+7. 命名规范 （清楚动词，名词，形容词的区别）baseInfo vs getBaseInfo/ hiddenPopover vs hidePopover
+函数一般都是一个动作，所以一般不用名词，特殊情况 xxxHandler
+注意单数负数， option vs options
+8. 不要在map构建内容时，返回null或者空字符串，直接在上面过滤
+9. 注意小屏的表现， flex为1的文字组件。 都要设置宽度或者truncate
+10. 不用滥用optional call，比如a.b在类型定义中是必然存在的，但是在代码中写a.b?.c()。现在是没问题，但如果将来将c改成optional, 此时编辑器是不会报错的。 此时这个c函数可以就无法执行到了
+同理在定义Props类型的时候也不能全盘optional
+
+11. 公共组件边界不清，A组件带逻辑的内容直接export给B用
+
 
 组件化的一个隐忧，必须一开始就设计好，组件API，不然删除一个属性根本不知道有没有被用到
 
 markdown组件槽点：
+问题1. 打分这个功能应不应该在markdown这个组件里？
+问题2. 存储localstorage是不是一个功能
+
 1. 属性要内聚，比如Markdown的onSetLS属性，思考下应不应该放进来
-2. 无关的内容不要放进来，比如show rate
-3. React的设计原则，如果受控就一直受控，如果不受控就一直不受控
+2. 无关的内容不要放进来，比如show rate，如果放进来就要内聚功能
+3. 开闭原则，对变化的内容要放开
+顶级组件的设计要慎重
 
 
-{list.map((item) => {
-                const { title = '-', onClick = () => {}, `show` = true } = item;
-                return show ? (
-                  <Menu.Item key={title} onClick={onClick}>
-                    <span className="fake-link mr-1">{title}</span>
-                  </Menu.Item>
-                ) : (
-                  ''
 ```
 
 

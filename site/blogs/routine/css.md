@@ -147,3 +147,15 @@ categories:
 z-index只在同层叠上下文有效，如果是跨域了上下文，即使设置成无限大也没用
 
 [z-index 特喵到底是什么？](https://juejin.cn/post/6951640002526707743)
+
+
+
+## client-height vs offset-height vs scroll-height
+
+一张图说明：
+
+- client-height: 可视区域内，元素的高度，包含padding的高度，但**不包括**border和scroll bar的高度
+- offset-height: client-height + border +scroll bar的高度，所以没有滚动条和border的话，和client-height是一样的
+- scroll-height: 不管可见不可见， 就是content高度 + padding
+
+![image-20211126142315263](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20211126142315263.png)
