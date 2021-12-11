@@ -334,7 +334,7 @@ toArray('123');
 
 
 
-### 条件范型
+## 条件范型
 
 假设要写一个`promisify`的函数
 
@@ -376,7 +376,7 @@ const a = promisify(1); // a: Promise<number>
 
 
 
-### infer
+## infer
 
 定义一个类型，接受一个T泛型，如果T本身是一个Promise，那么取Promise包装的内部类型，否则取T本身
 
@@ -406,22 +406,48 @@ type Head<T> = T extends [infer H, ...any[]] ? H : never;
 
 
 
+## extends的特性
+
+`extends`（非继承， 这里**特指条件类型**） 当前面的参数为联合类型时则会分解（**依次遍历所有的子类型进行条件判断**）联合类型进行判断。然后将最终的结果组成新的联合类型。
+
+`x extends y `能不能成立，**取决于x能够赋给y不报错**
+
 ```javascript
-  type myType = (s: string | number) => void;
-  const myFunc = (key: string) => {};
-  const foo = (func: myType) => {};
-  foo(myFunc);
+// 1 extents A 能不能成立，取决于1能不能赋值给A
+// 即 const x:A = 1 能不能成立， 如果能成立就符合extends
+type A = 1 | 2;
+type B = 3 extends A ? '1' : '2'; // 2  const x: 1|2 = 3 不成立
+type B = 1 extends A ? '1' : '2'; // 1  const x: 1|2 = 1 成立
+
+let ax:1 = 1;
+let ax2:any = 2;
+
+ax = ax2 // const x:1 = a as any 因为any可以赋给任何值，所以成立
+ax2 = ax  // const x:any = 1 更加成立
+// 所以以下都成立
+1 extends any
+any extends 1
 ```
 
-### extends的特性
 
-`extends`（非interface A extends B， 这里特指条件类型） 当前面的参数为联合类型时则会分解（依次遍历所有的子类型进行条件判断）联合类型进行判断。然后将最终的结果组成新的联合类型。
+
+### 分布式条件类型
+
+如果extends的左边是一个联合类型，那么它就会被自动分发成一个分布式条件类型
+
+| 分布式条件类型                                  | 等价于                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------ |
+| `string extends T ? A : B`                      | `string extends T ? A : B`                                   |
+| `(string | number) extends T ? A : B`           | `(string extends T ? A : B) | (number extends T ? A : B)`    |
+| `(string | number | boolean) extends T ? A : B` | `(string extends T ? A : B) | (number extends T ? A : B) | (boolean extends T ? A : B)` |
+
+在官方文档中提到，分布式条件类型是有前提的。条件类型中待检查的类型（即extends左边的类型）必须是**裸类型**（naked type parameter）。**即没有被诸如数组，元组或者函数包裹**。即如果用元组包裹了，那么这个分发就不会被触发
 
 ```javascript
-// 如 结果为type A3 = 1 | 2
-// 原因是extends是将T的所有可能子类型都跟'x' 判断一遍，第一个x成功了。第二个y失败了
-type P<T> = T extends 'x' ? 1 : 2;
-type A3 = P<'x' | 'y'>
+// 结果为type A3 = 1 | 2
+type P<T> = T extends 'x' ? 1 : 2;  
+type A3 = P<'x' | 'y'>  // 1 | 2 期望得到2
+// 相当于 ('x' extends 'x' ? 1: 2) | ('y' extends 'x' ? 1 : 2)
 
 // 规避的方法是，用一个中括号括起来
 type P<T> = [T] extends ['x'] ? 1 : 2;
@@ -429,15 +455,11 @@ type P<T> = [T] extends ['x'] ? 1 : 2;
  * type A4 = 2;
  */
 type A4 = P<'x' | 'y'>
-  
-// 1 extents A 能不能成立，取决于1能不能赋值给A
-// 即 const x:A = 1 能不能成立， 如果能成立就符合extends
-type A = 1 | 2;
-type B = 3 extends A ? '1' : '2'; // 2
-type B = 1 extends A ? '1' : '2'; // 1
 ```
 
-### 可赋值性/协变/逆变/双向协变
+
+
+## 可赋值性/协变/逆变/双向协变
 
 ```javascript
 // 可赋值性 B继承于A, B类型可以赋值给A类型，反之不能
@@ -496,7 +518,7 @@ window.addEventListener('mouseover', (e: MouseEvent) => {});
 
 
 
-### 谓词
+## 谓词
 
 ```javascript
 // 刚碰到一个ts的问题，想当然觉得原生filter是可以自动判断类型的
@@ -510,9 +532,7 @@ let b = a.filter((item): item is number => !!item);
 
 
 
-
-
-### class type
+## class type
 
 有时候会纠结一个class到底是一个type还是它自己本身， 总结一下
 
@@ -543,7 +563,7 @@ const p4: typeof People = People;
 
 
 
-### as in type定义
+## as in type定义
 
 如何实现一个条件Pick， 如： 只Pick出类型中类型为string的属性
 
@@ -568,7 +588,151 @@ type StringKeysOnly = ConditionalPick<Example, string>;
 
 
 
-### 如何在vscode调试ts
+## extends 技巧集合
+
+### 字符串操作
+
+- 如何将字符串首字母大写
+  - 字符串模板配合两个`infer`，L就是第一个字母，R就是后面的全部
+  - 字符串模板可以用来拼接类型输出
+
+```javascript
+type CapitalizeString<T> = T extends `${infer L}${infer R}` ? `${Uppercase<L>}${R}` : never
+
+type a1 = CapitalizeString<'handler'>       // Handler
+type a2 = CapitalizeString<'parent'>        // Parent
+type a3 = CapitalizeString<233>
+```
+
+- 如何得到最后一个字符
+  - infer只能从队首开始解析，所有必须用到**递归**，从左到右，一直推到最后一位
+
+```javascript
+type LastChar<T, P = never> = T extends `${infer F}${infer L}` ? LastChar<L, F> : P;
+
+type D = LastChar<'BFE'> // 'E'
+type E = LastChar<'dev'> // 'v'
+type F = LastChar<''> // never
+```
+
+- 字符串转数组
+  - 合理利用第二甚至更多的**泛型**，在递归中非常重要，**用来传递中间结果**
+
+```javascript
+type StringToTuple<T, Ret extends Array<any> = []> = T extends `${infer L}${infer R}` ? StringToTuple<R, [...Ret, L]> : Ret;
+
+type G = StringToTuple<'B FE.dev'> // ['B', 'F', 'E', '.', 'd', 'e','v']
+type H = StringToTuple<''> // []
+```
+
+- 重复字符串
+  - 如果在类型中需要累加计数的操作，可以**加入一个计数的泛型数据**，每次推入一个没有意义的内容，最后通过拿到它的`length`属性来实现预设长度
+
+```javascript
+type RepeatString<T extends string = '', C extends number = 0, L extends Array<1> = [], Ret extends string = ''> = L['length'] extends C ? Ret : RepeatString<T, C, [...L, 1], `${Ret}${T}`>
+
+type L = RepeatString<'a', 3> // 'aaa'
+type M = RepeatString<'a', 0> // ''
+```
+
+### 数组操作
+
+- 拿到数组最后一项
+  - 数组和字符串做分割infer的区别就是，数组是可以用**rest表达式**的，直接可以拿到队头和队尾的类型
+  - 同理也可以拿到数据第一项，但更快的方式是`T[0]`
+
+```javascript
+type LastItem<T extends any[]> = T extends [...infer L, infer R] ? R : never;
+```
+
+- 拍平数组
+  - 双递归
+
+```javascript
+type Flat<T> = T extends [infer L, ...infer R] 
+  ?  [...(L extends any[] ? Flat<L> : [L]), ...Flat<R>]
+  : T
+
+type J1 = Flat<[1, 2, 3]> // [1,2,3]
+type J2 = Flat<[1, [2, 3], [4, [5, [6]]]]> // [1,2,3,4,5,6]
+type J3 = Flat<[]> // []
+type J4 = Flat<[1]> // [1]
+```
+
+
+
+### 对象操作
+
+- 判断两个类型相同
+  - 因为上面提到过的`extends`特性，分布式条件类型，如果碰到联合类型需要加元组套起来
+  - 需要相互extends
+  - 如果两边分别是1和any，它们是可以互相extends的，此时就需要对比它们的属性了，any只有三个属性值，而1有number所有的属性值，两边不对应，就能分辨出不同
+
+```javascript
+type Equal<T, K> = [T] extends [K] 
+  ? [K] extends [T]
+    ? keyof K extends keyof T
+      ? keyof T extends keyof K
+        ? true
+        : false
+      : false
+    : false
+  : false
+```
+
+- 如何找到类型中的可选属性
+  - 先过滤掉类型中所有的undefined（真正的undefined），`{ a:string, b?: string, c:string | undefined }`会变成`{ a: string, b?: string | undefined, c:string}`
+  - 再用undefined去extends类型，如果成立，那就是可选类型
+  - 相反就可以找出所有非可选的属性
+
+```javascript
+type ExcludeUndefined<T>= {[K in keyof T]:Exclude<T[K],undefined>}
+
+type OptionalKeys<T, K = keyof T> = K extends keyof T ?
+  (undefined extends ExcludeUndefined<T>[K] ? K : never) : never
+
+type N1 = OptionalKeys<{ foo: number | undefined, bar?: string, flag: boolean }>        // bar
+type N2 = OptionalKeys<{ foo: number, bar?: string }>                                   // bar
+type N3 = OptionalKeys<{ foo: number, flag: boolean }>                                  // never
+type N4 = OptionalKeys<{ foo?: number, flag?: boolean }>                                // foo|flag
+type N5 = OptionalKeys<{}>      
+```
+
+- 合并类型
+  - 利用交并差的概念，AB合并就是，A去掉与B共有的属性，然后加上B
+
+```javascript
+type Merge<T, K> = { [k in Exclude<keyof T, keyof K>]: T[k] } & K
+
+type obj1 = {
+    el: string,
+    age: number
+}
+
+type obj2 = {
+    el: HTMLElement,
+    flag: boolean
+}
+
+type obj3 = Merge<obj1, obj2>   // {el:HtmlElement,age:number,flag:boolean}
+```
+
+- 判断any类型
+  - 任何类型与any联合都是any
+  - 任何类型，T extends any都成立
+
+```javascript
+type IsAny<T> = 0 extends (1 & T) ? true : false
+
+type AQ = IsAny<string> // false
+type BQ = IsAny<any> // true
+type CQ = IsAny<unknown> // false
+type DQ = IsAny<never> // false
+```
+
+
+
+## 如何在vscode调试ts
 
 ```json
 {
