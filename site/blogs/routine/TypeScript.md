@@ -732,6 +732,22 @@ type DQ = IsAny<never> // false
 
 
 
+## 箭头函数定义泛型
+
+在箭头函数中定义泛型，会报`JSX element 'T' has no corresponding closing tag.`的错误
+
+解决方法就是给T extends 一个unknown
+
+```javascript
+const foo = <T>(x: T) => x;
+==>
+const foo = <T extends unknown>(x: T) => x;
+```
+
+
+
+
+
 ## 如何在vscode调试ts
 
 ```json
