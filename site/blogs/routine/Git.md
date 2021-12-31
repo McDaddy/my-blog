@@ -201,3 +201,14 @@ git log --all --full-history -- <file-path-name>
 git log --all --follow --full-history -- <file-path-name>
 ```
 
+## 如何把A源的分支推到B源
+
+有的时候我们会直接checkout了remote的分支，写完代码后发现推不上去，因为有权限控制。
+
+事实上，我们本意是checkout一个remote分支，然后作为一个本地分支去改代码，此时可以
+
+```shell
+git push -u origin // 推到origin同名的branch
+git push -u origin // 推到origin指定名称的branch
+```
+
