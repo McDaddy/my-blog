@@ -216,6 +216,127 @@ const getDepth = (root) => {
 
 
 
+## 堆
+
+特性
+
+- 堆结构其实就是一个**完全二叉树**
+
+- 完全二叉树的好处是，可以在连续的内存空间（数组）里面直接描述树结构
+
+- 完全二叉树，任意节点，知道自己的数组中的编号，得到父与子的编号，假设编号i （编号从0开始）
+
+  - 父节点的编号： `(i - 1) >> i`， 这里`i > 0`, 如1的父为0，3的父为1
+  - 子节点的编号： 左节点 `(i << 1) + 1`，右节点`(i << 1) + 2`
+
+- 分为大根堆和小根堆
+
+  - 大顶堆： 任意父节点都大于两个子节点
+
+  - 小顶堆：任意父节点都小于两个子节点
+
+- 兄弟节点的大小关系是不明确的，只知道父子间的大小关系。所以最大（小）值永远是root，而第二大（小），可能在第二层，也可能在第三层
+
+- **优先队列**就是堆，就是原本先进先出的队列，变成了有优先级的，优先级高的先出
+
+- 一般遇到找出**最大K个**元素之类的题目，且动态加一位，仍然要保持排序的， 一般都是要用堆排序
+
+  - 比如要求最大第K个元素，可以将初始化的数组，建立成一个小根堆
+  - 当堆长度大于K时，就循环pop，此时弹出的一定是比最大K元素小的元素
+  - 当堆长度等于K时，此K个元素就是所有元素中最大的K个， 此时堆顶元素就是，剩下K个元素中最小的，即所有元素中第K大的
+  - 此时如果push新元素进去，然后再pop一次，那么堆顶的依然是所有元素中第K大的
+
+```javascript
+// 实现一个大根堆
+class Heap {
+  constructor(values) {
+    this.data = values;
+    this.init();
+  }
+  size() {
+    return this.data.length;
+  }
+  init() {
+    for (let i = 0; i < this.size(); i++) {
+      this.bubbleUp(i);
+    }
+  }
+  swap(i, j) {
+    if (i === j) return;
+    const temp = this.data[i];
+    this.data[i] = this.data[j];
+    this.data[j] = temp;
+  }
+  bubbleUp(index) {
+    while (index > 0) {
+      const parentIndex = (index - 1) >> 1;
+      if (this.data[parentIndex] < this.data[index]) {
+        this.swap(index, parentIndex);
+      }
+      index = parentIndex;
+    }
+  }
+  pop() {
+    if (!this.size()) {
+      return null;
+    }
+    const top = this.data[0];
+    const last = this.data.pop();
+    if (this.size()) {
+      this.data[0] = last;
+      this.bubbleDown(0);
+    }
+    return top;
+  }
+  bubbleDown(index) {
+    while (index < this.size() - 1) {
+      const leftIndex = (index << 1) + 1;
+      const rightIndex = (index << 1) + 2;
+      let maxValIndex = index;
+      if (this.data[maxValIndex] < this.data[leftIndex]) {
+        maxValIndex = leftIndex;
+      }
+      if (this.data[maxValIndex] < this.data[rightIndex]) {
+        maxValIndex = rightIndex;
+      }
+      if (maxValIndex === index) break;
+      this.swap(index, maxValIndex);
+      index = maxValIndex;
+    }
+  }
+  push(val) {
+    this.data.push(val);
+    this.bubbleUp(this.size() - 1);
+  }
+  peek() {
+    if (this.size()) {
+      return this.data[0];
+    }
+    return null;
+  }
+}
+const heap = new Heap([99, 5, 12, 56, 1, 0, 8]);
+const r1 = heap.pop(); // 99
+const r2 = heap.pop(); // 56
+heap.push(100);
+const r3 = heap.pop(); // 100
+```
+
+### 实现核心
+
+1. 每插入一个数字，需要确保插入的这个数字是比父来的小，如果比父来得大，那就需要和父调换位置，分两种情况
+   1. 在初始化数组时，每次不管是不是比父大，都要把index变成父index，做下一轮计算，直到顶层
+   2. 在后续插入时，只要插入数小于父，那就直接停止
+2. 每pop一个数字，这个数字比如是目前的最大值，此时要做的事情是
+   1. 把队尾的数字，放到队首来，填补pop后的空缺
+   2. 自顶向下，比较子与父的值
+      1. 如果子大于父，那么就要调换位置，然后小的数字来到子的位置充当父，继续父子值的比较
+      2. 如果子都小于父，那么说明目前结构正确，直接跳出循环
+
+
+
+
+
 ## 通用技巧
 
 因为js里面0直接去判断非空会为false，所以有的时候0为有意义的值的时候，比如记录指针下标，最后要判断下标是不是为空。如果这时候把空指针用`null`来指定，那接下来所有的判断都要加上`x !== null` 非常不方便，可以将下标设置为`-1`，然后判断是不是大于等于0就好

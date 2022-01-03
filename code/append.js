@@ -6,7 +6,7 @@ label.textContent = 'ICP证：';
 const aLink = document.createElement('a');
 aLink.href = 'https://beian.miit.gov.cn/';
 aLink.target = '_blank';
-aLink.title = '浙ICP备20017004号';
+aLink.innerHTML = '浙ICP备20017004号';
 
 appendChild.appendChild(label);
 appendChild.appendChild(aLink);
