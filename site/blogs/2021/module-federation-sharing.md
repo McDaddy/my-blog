@@ -253,6 +253,10 @@ Q：shared scope中的library会和别的不共享的module混在一起吗？
 
 A：不会的，只要被设置为共享的library，它都会单独编译成一个chunk，不会像普通的module，如果没有加`split chunk`规则就会混合成一个大的`vendor chunk`
 
+Q: 如何做到动态的remote
+
+A: https://codesandbox.io/s/dynamic-remotes-webpack-module-federation-o51ho?from-embed=&file=/home/app.jsx
+
 
 
 ## 参考

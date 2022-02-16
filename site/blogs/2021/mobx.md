@@ -139,7 +139,7 @@ class Reaction {
   }
 
   collect() {
-    // 这个判断是和end清楚nowFn结合使用
+    // 这个判断是和end清除nowFn结合使用
     // 如果我是在autorun之外触发了get，那就不应该被收集依赖，这里就确保只有autorun里面的变量被收集
     if (nowFn) {
       this.store.push(nowFn);

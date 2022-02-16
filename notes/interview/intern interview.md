@@ -2,15 +2,15 @@
 - [ ] 英语水平
 - [ ] HTML基础
   - [ ] H5的标签语义化
-  - [ ] Load 和 DOMContentLoaded 区别
+  - [ ] Load 和 DOMContentLoaded 区别  不知道
 - [ ] JS基础
   - [ ] ==的隐式转换
-  - [ ]  JS中数据类型的判断 typeof、 instanceof、 constructor、Object.prototype.toString.call()
+  - [ ]  JS中数据类型的判断 typeof、 instanceof、 constructor、Object.prototype.toString.call()？很清楚
   - [ ] 闭包，作用，缺点？
   - [ ] Promise基础.  很清楚
-  - [ ] Promise静态方法？ 全部说出来很优秀， 但理解有出入
+  - [ ] Promise静态方法？ 清楚
   - [ ] const var的区别， 暂时性死区
-  - [ ] this指向 call apply
+  - [ ] this指向 call apply，清楚
   - [ ] 列举数组的方法 splice reduce unshift ？ 基本全了
   - [ ] 事件循环
   - [ ] 事件委托 stopPropogation
@@ -33,3 +33,34 @@
   - [ ] 为什么三次握手
   - [ ] HTTPs为什么安全
   - [ ] 如何优化页面性能
+
+
+
+```javascript
+/**
+
+给定一个由 整数 组成的 非空 数组所表示的非负整数，在该数的基础上加一。
+
+最高位数字存放在数组的首位， 数组中每个元素只存储单个数字。
+
+你可以假设除了整数 0 之外，这个整数不会以零开头。
+
+示例 1：
+
+输入：digits = [1,2,3]
+输出：[1,2,4]
+解释：输入数组表示数字 123。
+
+示例 2：
+
+输入：digits = [0]
+输出：[1]
+
+示例 3：
+
+输入：digits = [9]
+输出：[1, 0]
+
+**/
+```
+
