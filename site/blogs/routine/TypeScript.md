@@ -588,6 +588,41 @@ type StringKeysOnly = ConditionalPick<Example, string>;
 
 
 
+## 尾部的index
+
+```javascript
+type NonNullablePropertyKeys<T> = {
+  [P in keyof T]: null extends T[P] ? never : P;
+}[keyof T];
+```
+
+上面这段定义，`NonNullablePropertyKeys`目的是取出对象中所有不为null的属性名集合
+
+假设没有最后尾部的`[keyof T]`，那么结果其实还是个对象
+
+怎么取出这个对象所有的value集合，并且过滤掉never，此时就要用到尾部index
+
+同理如果要直接把对象中的never过滤了，可以用上一步的`as in type`实现
+
+`type OmitNever<T> = { [K in keyof T as T[K] extends never ? never : K]: T[K] }`
+
+```javascript
+type User = {
+  name: string;
+  email: string | null;
+};
+
+type NonNullableUserPropertyKeys = NonNullablePropertyKeys<User>;
+// 如果没有尾部结果就是
+// { name: 'name'; email: never }
+// 有了之后
+// name
+// 所有它的意义就是 { name: "name"; email: never }['name' | 'email']
+// 得到 name
+```
+
+
+
 ## extends 技巧集合
 
 ### 字符串操作

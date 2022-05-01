@@ -159,3 +159,30 @@ z-index只在同层叠上下文有效，如果是跨域了上下文，即使设�
 - scroll-height: 不管可见不可见， 就是content高度 + padding
 
 ![image-20211126142315263](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20211126142315263.png)
+
+
+
+## 如何防止内容撑开容器高度
+
+有时候一个容器的高度会因为内容而撑开，为了限制它的高度，让内容按需滚动。一种方法是逐层设置`h-full`这样，容器就有明确的高度可以`overflow-auto`,另一种方法是
+
+```css
+.parent {
+    overflow: auto;
+    position: relative;
+}
+
+.child {
+    position: absolute;
+}
+```
+
+
+
+## overflow属性
+
+一般情况下，我们都了解`auto`和`hidden`的区别，但不知道它的默认值是什么
+
+事实上overflow的默认值是`visible`，即溢出了仍然能看到，常见的误区是以为设置成auto也能看到溢出，但这种情况只限定于普通定位，如果溢出的部分是绝对定位等，那么auto也会导致元素看不到，此时还会以为是层叠上下文的问题走不少弯路。
+
+同时还有两个值，`inherit`表示继承父的overflow属性值，`initial`等同于visible

@@ -232,6 +232,35 @@ const getDepth = (root) => {
 };
 ```
 
+**实现一维数组转树**
+
+```javascript
+const list = [
+  { id: 1, pid: 0, name: '四川' },
+  { id: 2, pid: 1, name: '成都' },
+  { id: 3, pid: 1, name: '宜宾' },
+  { id: 4, pid: 1, name: '绵阳' },
+  { id: 5, pid: 1, name: '德阳' },
+  { id: 6, pid: 2, name: '高新区' },
+  { id: 7, pid: 2, name: '武侯区' },
+  { id: 8, pid: 3, name: '翠屏区' }
+];
+
+const arrayToTree = (arr, pid) => {
+  return arr.reduce((res, current) => {
+    if (current['pid'] === pid) {
+      current.children = arrayToTree(arr, current['id']);
+      return res.concat(current);
+    }
+    return res;
+  }, []);
+};
+console.log(arrayToTree(list, 0))
+
+```
+
+
+
 
 
 ## 堆
@@ -365,3 +394,5 @@ const r3 = heap.pop(); // 100
 ## 通用技巧
 
 因为js里面0直接去判断非空会为false，所以有的时候0为有意义的值的时候，比如记录指针下标，最后要判断下标是不是为空。如果这时候把空指针用`null`来指定，那接下来所有的判断都要加上`x !== null` 非常不方便，可以将下标设置为`-1`，然后判断是不是大于等于0就好
+
+遇到字符串计数相关的问题，可以考虑用Map来做count计数
