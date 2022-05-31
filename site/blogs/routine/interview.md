@@ -520,17 +520,56 @@ function go (url) {
 ## 手写一个深拷贝
 
 ```javascript
-export function cloneDeep(value) {
-  if (Array.isArray(value)) {
-    return value.map((child) => cloneDeep(child))
+const cloneDeep = (target, cache = new Map()) => {
+  if (typeof target !== "object" || target === null) {
+    return target;
+  }
+  const cacheTarget = cache.get(target);
+  if (cacheTarget) {
+    return cacheTarget;
   }
 
-  if (typeof value === 'object' && value !== null) {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, cloneDeep(v)]))
+  let cloneTarget = Array.isArray(target) ? [] : {};
+  if (target instanceof RegExp) {
+    cloneTarget = new RegExp(target.source, target.flags);
+  } else if (target instanceof Function) {
+    cloneTarget = function () {
+      return target.call(this, ...arguments);
+    };
+  } else if (target instanceof Date) {
+    cloneTarget = new Date(target);
+  } else {
+    for (const key in target) {
+      if (Object.hasOwnProperty.call(target, key)) {
+        const item = target[key];
+        cloneTarget[key] =
+          typeof item !== "object" || target === null ? item : cloneDeep(item);
+      }
+    }
   }
 
-  return value
-}
+  cache.set(target, cloneTarget);
+  return cloneTarget;
+};
+
+const target = {
+  field1: 1,
+  regex: /ss/g,
+  func: () => {
+    let a = 1;
+  },
+  field2: undefined,
+  field3: {
+    child: "child",
+  },
+  field4: [2, 4, 8],
+  f: {
+    f: { f: { f: { f: { f: { f: { f: { f: { f: { f: { f: {} } } } } } } } } } },
+  },
+};
+
+const clone = cloneDeep(target);
+console.log("clone: ", clone);
 ```
 
 
@@ -556,3 +595,99 @@ useEffect中的return有两种执行实际
 [demo](https://codesandbox.io/s/jvvkoo8pq3?file=/src/index.js)
 
 在return方法中，其实相当于是可以修改上一个闭包中的值，与当前effect的闭包是隔离开的。
+
+
+
+## 数组转树
+
+核心：
+
+1. 用一个map来存储所有节点的id与node的值
+2. 当第二次遍历时，通过pid找到map中的父，直接添加child。如果是根元素，直接push到root中
+
+```javascript
+[
+    {"id":1,"pid":0,"name":"上海市"},
+    {"id":2,"pid":1,"name":"杨浦区"},
+    {"id":3,"pid":1,"name":"静安区"},
+    {"id":4,"pid":2,"name":"营口路"},
+    {"id":5,"pid":3,"name":"北京西路"},
+    {"id":6,"pid":2,"name":"长海路"},
+    {"id":7,"pid":3,"name":"长寿路"},
+    {"id":8,"pid":4,"name":"1号楼"},
+    {"id":9,"pid":4,"name":"2号楼"}
+]
+
+
+function list_to_tree(list) {
+  let map = {}, node, root = [], i;
+  for(i = 0; i < list.length; i++) {
+    map[list[i].id] = i
+    list[i].children = []
+  }
+  for(i = 0; i < list.length; i++) {
+    const node = list[i]
+    if(list[i].pid !== 0) {
+      list[map[node.pid]].children.push(node)
+    }else {
+      root.push(node)
+    }
+  }
+  return root
+}
+```
+
+
+
+## 实现InstanceOf
+
+```javascript
+const myInstanceOf = (obj, target) => {
+  if (!(obj && ["object", "function"].includes(typeof obj))) {
+    return false;
+  }
+  let proto = Object.getPrototypeOf(obj);
+  while (proto) {
+    if (proto === target.prototype) {
+      return true;
+    }
+    proto = Object.getPrototypeOf(proto);
+  }
+  return false;
+};
+
+const obj = {};
+console.log(myInstanceOf(obj, Object));
+```
+
+
+
+## 实现new操作符
+
+```javascript
+const _new = function (func, ...args) {
+  // 步骤1和步骤2
+  let obj = Object.create(func.prototype);
+  // 也可以通过下面的代码进行模拟
+  /**
+    let Ctor = function () {}
+  
+    Ctor.prototype = func.prototype
+    Ctor.prototype.constructor = func
+  
+    let obj = new Ctor()
+   */
+  // 步骤3
+  let result = func.apply(obj, args);
+  // 步骤4
+  if (
+    (typeof result === "object" && result !== null) ||
+    typeof result === "function"
+  ) {
+    return result;
+  } else {
+    return obj;
+  }
+};
+```
+
