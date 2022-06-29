@@ -121,6 +121,6 @@ window.requestIdleCallback = function (callback) {
 分为两个阶段，协调reconcilidation和提交阶段commit
 
 - 协调阶段：可以认为是diff阶段，这个阶段是可以中断的，在这个阶段会找出所有节点的变更（新增、修改、删除）等。这些被成为副作用
-- 提交阶段：必须同步不能打断，即将上个阶段完成的副作用一次性执行。
+- 提交阶段：必须同步不能打断，即将上个阶段完成的副作用一次性执行。完成之后开始执行各种生命周期钩子和hooks
 
 <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20200816233304966.png" alt="image-20200816233304966" style="zoom:80%;" />

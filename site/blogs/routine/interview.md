@@ -521,7 +521,7 @@ function go (url) {
 
 ```javascript
 const cloneDeep = (target, cache = new Map()) => {
-  if (typeof target !== "object" || target === null) {
+  if (typeof target !== "object" || typeof target === 'function' || target === null) {
     return target;
   }
   const cacheTarget = cache.get(target);
@@ -542,8 +542,7 @@ const cloneDeep = (target, cache = new Map()) => {
     for (const key in target) {
       if (Object.hasOwnProperty.call(target, key)) {
         const item = target[key];
-        cloneTarget[key] =
-          typeof item !== "object" || target === null ? item : cloneDeep(item);
+        cloneTarget[key] = cloneDeep(item);
       }
     }
   }
@@ -689,5 +688,302 @@ const _new = function (func, ...args) {
     return obj;
   }
 };
+```
+
+
+
+## CSP
+
+本质就是一个白名单功能，告诉浏览器去限制什么样的资源能加载执行什么不能。
+
+开启方式
+
+1. http头
+2. html meta标签
+
+除此之外，还能控制比如，https的情况下能不能加载http，http的资源是不是自动升级为https等等
+
+
+
+## 杂题
+
+#### 如何让const创建的对象内部也不能被改变
+
+通过`Object.defineProperty`递归修改每个属性的`writable`
+
+#### Reflect是做什么的
+
+用来跟proxy一一对应的，比如proxy改了默认的get行为，Reflect上会有原来的默认行为，所以我们一般都会看到Reflect是用在Proxy的调用中的。
+
+同时将一些命令式的方法改成了函数式的，比如`a in obj` -> `Reflect.has(obj, 'a')`. `delete obj[name]` -> `Reflect.deleteProperty(obj, name)`
+
+#### commonJS与esm总结
+
+[指导](https://hacks.mozilla.org/2018/03/es-modules-a-cartoon-deep-dive/)
+
+1. esm是Ecma的标准，commonjs是一种模块化的实现
+2. esm的import和export都是引用，commonjs都是值的拷贝
+3. esm的运作分为三步
+   1. Construction 寻找文件路径，下载**所有**文件并解析成一个module record
+   2. Instantiation 在内存中分配地址，给所有的export，但此时仅仅是有一个引用，并没有真正赋值（比如export const a = 1， 此时a存在，但是没有被初始化，同暂时性死区），同时将import和export做一个接线，即import和export都指向同一块内存引用
+   3. Evaluation 真正跑初始化代码，将导出都赋上初始值
+4. 以上三步，因为第一步往往很慢，所以这三步常被称为异步执行，相反的commonjs的`require`永远是同步执行的
+5. 其中第二第三步，都会在第一步的基础上做一个深度优先的后续遍历，做到先初始化子节点，然后初始化根节点
+6. 两边都有缓存机制，commonjs缓存的是一个模块的拷贝。esm维护一个叫module map的东西，也确保一个模块不会被加载两次
+7. esm不能用变量来做import，而commonjs可以
+8. 关于循环引用
+
+```javascript
+// a.js
+const { b } = require('./b.js')
+
+console.log('this is a', b);
+
+exports.message = '888';
+
+// b.js
+const { message } = require('./a.js');
+
+setTimeout(() => {
+  console.log(message);
+  // const { message: m2 } = require('./a.js');
+  //  console.log(m2); // 这样是能打出message的
+}, 1000);
+console.log(message);
+
+module.exports = {
+  b: 123,
+};
+```
+
+结果执行`node a.js` 输出
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20220607000927402.png" alt="image-20220607000927402" style="zoom:67%;" />
+
+说明顺序是:
+
+1. 加载然后执行a.js，从第一行开始同步加载b.js，
+2. b.js第一行又要去加载a.js，但此时发现缓存里面已经有a.js的缓存，所以不会去再初始化a
+3. 继续初始化b，当打印message时，a的初始化还没完成，所以打印`undefined`
+4. 最后导出b，回到a.js的初始化得到已经初始化好了的b并且打印出来，最后再导出了message
+5. 最后在b的setTimeout中，虽然1秒后a已经初始化结束，但是它得到的a拷贝没有变化，所以打出来的还是undefined
+
+```javascript
+// a.mjs
+import b from './b.mjs'
+
+console.log('this is a', b);
+const message = '888';
+
+export default message
+
+// b.mjs
+import message from './a.mjs'
+
+//setTimeout(() => {
+  //console.log(message);
+//}, 1000);
+console.log(message);
+
+const b = 123;
+
+export default b;
+```
+
+在没有setTimeout的情况下输出
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20220607001748984.png" alt="image-20220607001748984" style="zoom:67%;" />
+
+这就类似我们let的暂时性死区，这个导出的变量是存在的，但是还没有被初始化，结果直接报错。
+
+如果改成setTimeout
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20220607001914268.png" alt="image-20220607001914268" style="zoom:67%;" />
+
+这个结果就不会报错，也不会有警告。因为esm的import和export都是活的link，当初始化结束后，import就能得到最新的结果
+
+#### WeakSet特点与作用
+
+特点：
+
+1. 只能存放对象，基本类型不能放
+2. 当存放的对象没有被引用时，垃圾回收会直接把它回收，而不用管它还在这个set中
+3. 因为垃圾回收的时机不可控，所以遍历的前后元素可能不同，所以它不可以被遍历
+
+作用：
+
+1. 用来存放DOM节点，如果存放在普通set中， 如果节点被删除，这个引用依然存在，就会导致内存泄露
+
+#### 原型链
+
+![image-20220602163329828](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20220602163329828.png)
+
+#### React Vue异同
+
+![image-20220605151244560](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20220605151244560.png)
+
+
+
+#### Fiber
+
+- 16以前dom更新都是递归实现，过程是无法打断的，导致了组件数量大时，长期占用主线程导致了页面卡顿
+- 思想
+  - 利用浏览器空闲的时间来做对比dom的操作
+  - 更新任务要做到可以打断，用循环替代递归
+  - 大任务分割成小任务
+- 原理
+  - 利用message Channel的postmessage来模拟ric， 以调度任务，原理是两个port配合raf
+  - 实现组件调用栈，就是把组件的更新顺序用链式的结构串联起来，这样更新到哪儿都可以随时暂停，恢复等操作
+- Fiber数据结构
+  - `return` 父节点，可以用来回溯
+  - `child` 所有子节点
+  - `sibling` 兄弟节点
+  - `stateNode` 对应的dom节点
+  - `expirationTime` 过期时间
+  - `effect` 变更
+- fiber树本质是一个链表
+- 树上每产生一个新的节点都会检查是否有更高优先级的任务，没有的话继续执行树的构建，否则会丢弃当前生成的树，等高优先任务结束后，空闲时重新执行一遍
+
+#### 优化提速
+
+##### 打包优化：
+
+1. 升级webpack5，开启本地缓存
+2. thread-loader
+3. terser plugin开启多进程 或者使用esbuild plugin
+4. include/exclude/alias 加速模块搜索
+5. 选择合适的source-map，`eval-cheap-module-source-map`
+6. speed mesure plugin但是webpack5 有问题
+7. bundle-analysis 分析包大小
+8. 开启[tree shaking](https://webpack.docschina.org/guides/tree-shaking/)， 只要开启production mode即可 配合terser plugin
+9. 添加`extensions`减少匹配后缀的时间
+10. terser plugin + mini-css-extract-plugin + 资源压缩
+11. splitChunk，提取公共模块
+
+**加载优化：**
+
+1. 骨架屏
+2. SSR
+3. 开启gzip + HTTP2
+4. 缓存策略
+5. PWA
+6. CDN
+7. preload(写在html里面，提前加载) + prefetch（闲的时候加载）
+
+**代码层：**
+
+1. 虚拟列表
+2. 防抖节流
+3. useMemo
+4. 懒加载 suspense + lazy
+5. 升级React18
+6. 减少重排
+
+
+
+**场景编程题**
+
+实现一个fetchWithRetry
+
+关键点：
+
+1. 需要用到递归，当失败的时候递归调用
+2. 需要单独抽出一个函数来做递归，原因是如果直接递归整个fetchWithRetry，那么每次递归用的都是自己的resolve和reject，即使调用了最外层也接受不到了
+
+```javascript
+function fetch(i) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      //   resolve(i);
+      reject(Error(i));
+    }, 1000);
+  });
+}
+
+function fetchWithRetry(param, n) {
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      fetch(param)
+        .then((res) => {
+          resolve(res);
+        })
+        .catch((e) => {
+          if (n > 0) {
+            return run(param, --n);
+          }
+          reject(e);
+        });
+    };
+    run();
+  });
+}
+
+fetchWithRetry(22, 3)
+  .then((res) => {
+    console.log('res: ', res);
+  })
+  .catch((e) => {
+    console.error('error', e);
+  });
+
+// 第二个重点，当new Promise之后，即使在里面return了一个promise，但没有调用resolve或者reject这个promise就不会改变状态
+// 所以下面的s是不会打印的
+const p = new Promise((resolve) => {
+  return Promise.resolve(1);
+});
+
+p.then((s) => {
+  console.log('s: ', s);
+});
+```
+
+
+
+实现可以控制并发数的池
+
+```javascript
+function Pool() {
+  this.limit = 3;
+  this.queue = [];
+  this.runCount = 0;
+}
+
+Pool.prototype.add = function (task) {
+  this.queue.push(task);
+};
+
+Pool.prototype.exec = function () {
+  while (this.runCount < this.limit && this.queue.length) {
+    const p = this.queue.shift()();
+    this.runCount++;
+    p.then(() => {
+      this.runCount--;
+      this.exec();
+    });
+  }
+};
+
+function fetch(i) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      console.log('done');
+      resolve(i);
+      // reject(Error(i));
+    }, 1000);
+  });
+}
+
+const taskPool = new Pool();
+taskPool.add(() => fetch(1));
+taskPool.add(() => fetch(2));
+taskPool.add(() => fetch(3));
+taskPool.add(() => fetch(4));
+taskPool.add(() => fetch(5));
+taskPool.add(() => fetch(6));
+taskPool.add(() => fetch(7));
+taskPool.add(() => fetch(8));
+taskPool.add(() => fetch(9));
+taskPool.add(() => fetch(10));
+taskPool.exec();
 ```
 

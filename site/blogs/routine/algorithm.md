@@ -78,7 +78,7 @@ var reverseList = function (head) {
   - A走X + (Y - M)步，走自身的长度，然后走B不想交部分的长度
   - B走Y + (X - M)步
   - 两者距离相等，且当M > 0时下一个节点必然是相交点，否则就是null节点
-  - 回到代码，就是AB节点同时从自己开始走，走完自己后，开始从对方的head走，然后必然会走到A.val === B.val的相遇节点，此时如果不是null的话，那就是相交了
+  - 回到代码，就是AB节点同时从自己开始走，走完自己后，开始从对方的head走，然后必然会走到A === B的相遇节点，此时如果不是null的话，那就是相交了
 
 ![image-20211119170250378](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20211119170250378.png)
 
@@ -127,7 +127,11 @@ var reverseList = function (head) {
 1. 它可以在内存中连续存储，而不需要指针，从而节省空间。因为每层的数量最最后一层前都是固定的，所以可以直接按层从左到右存储，没有排满的就是最后一层
 2. 要得到完全二叉树的层数，只需要从根节点一直遍历左节点，即左沉底就能算出层数
 3. 知道任何节点的编号x，那么x * 2就是左节点的编号，x*2 + 1就是右节点的编号
-4. 如果要判断某个位置的节点是否存在，可以通过位置编号的二进制来计算 力扣222题
+4. 一棵完全二叉树的两棵子树，至少有一棵是满二叉树
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20220612125142504.png" alt="image-20220612125142504" style="zoom:50%;" />
+
+1. 如果要判断某个位置的节点是否存在，可以通过位置编号的二进制来计算 力扣222题
 
 ![image-20211221165358153](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20211221165358153.png)
 
@@ -215,6 +219,8 @@ var countNodes = function (root) {
 2. 明确函数的意义，比如这个函数的目的是遍历一个根节点
 3. 思考边界，比如为空就返回
 4. 实现
+
+> 递归代码的精髓在于调用自己去解决规模更小的子问题，直到到达结束条件；而数学归纳法之所以有用，就在于不断把我们的猜测向上加一，扩大结论的规模，没有结束条件，从而把结论延伸到无穷无尽，也就完成了猜测正确性的证明。
 
 比如做二叉树的层序遍历
 
@@ -400,7 +406,7 @@ const r3 = heap.pop(); // 100
 
 列出所有可能性其实就是所有可选类型的排列组合，当选择A为第一个选项后，选项数-1，已选项+1。 剩下的选项重复重复这个步骤。
 
-当所有选项都用完了，说明一条路走到底了，即一种排列完成了。此时就需要开始**回溯**，从最后一层返回回去，比如倒数第二层，可能有AB两个选择，之前选了A，那么这次就要选B。例子42题全排列
+当所有选项都用完了，说明一条路走到底了，即一种排列完成了。此时就需要开始**回溯**，从最后一层返回回去，比如倒数第二层，可能有AB两个选择，之前选了A，那么这次就要选B。例子46题全排列
 
 但是也不能思维定式，比如复原ip问题 93题，这里并没有撤销选择的过程，因为数字的顺序是固定的，它会按照顺序一位一位得去穷举，比如`11111`这个数字，它会取出`1`然后去递归穷举`1111`的可能性，完了之后再取`11`然后穷举`111`的可能性，以此类推。
 
@@ -414,6 +420,24 @@ for 选择 in 选择列表:
     # 撤销选择
     路径.remove(选择)
     将该选择再加入选择列表
+
+// 全排列
+const backTrack = (selection, options, result) => {
+  if (!options.length) {
+      result.push([...selection]);
+      return;
+  }
+  for (let i = 0; i < options.length; i++) {
+      selection.push(options[i]);
+      const opts = [...options];
+      opts.splice(i, 1);
+      backTrack(selection, opts, result);
+      selection.pop();
+  }
+}
+
+const result = [];
+backTrack([], nums, result);
 
 // 不能移动位置的组合大致公式
 const ans = [];
@@ -490,9 +514,9 @@ console.log(f(15)) // 3
 - `s[low]`和`s[high]`相同，那么low和high肯定是可以形成回文的，那只要求出`dp[low+1][high-1]`（这个表示两个下标间最大的可能性）然后+2即可
 - `s[low]`和`s[high]`不相同，表示头尾是不可能形成回文的，这里就要求出`Math.max(dp[low][high - 1], dp[low + 1][high])`，表示头或者尾不变的前提下，对方缩进一位的最大值
 - 最后只要取出`dp[0][s.lengt-1]`即可
-- 要注意遍历顺序，low不能从0开始，必须从最大值开始，数据才能准备好
+- 要注意遍历顺序，low不能从0开始，必须从最大值开始，数据才能准备好。因为在一个二维矩阵中，求一个值就等于当前左边和下边两个值的和。 左边就是` [low][high - 1]` 下边就是 `[low + 1][hight]`，比如下面要计算`dp[3][4]`，需要的就是`dp[3][3]`和`dp[4][4]`，这时候数据已经准备好了。
 
-
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20220606134029868.png" alt="image-20220606134029868" style="zoom:50%;" />
 
 
 
@@ -504,7 +528,171 @@ console.log(f(15)) // 3
 
 - 逆向思维
   - 比如[合并排序的数组](https://leetcode.cn/problems/sorted-merge-lcci/solution/mian-shi-ti-1001-he-bing-pai-xu-de-shu-zu-by-leetc/)这题，表面上是要从前到后合并排序，如果这么做的话就要涉及数组的移位，计算空值等问题。如果换个思路，从尾巴上开始，从两个数组中取出最大的放在最后的位置。这样就规避了上面的问题且要考虑的边界问题就少很多。
+  
+  ```javascript
+  var merge = function (nums1, m, nums2, n) {
+    let x = m - 1;
+    let y = n - 1;
+    for (let i = m + n - 1; i >= 0; i--) {
+      let max;
+      if (x < 0) {
+        nums1[i] = nums2[y--];
+        continue;
+      }
+      if (y < 0) {
+        nums1[i] = nums1[x--];
+        continue;
+      }
+      if (nums1[x] > nums2[y]) {
+        max = nums1[x];
+        x--;
+      } else {
+        max = nums2[y];
+        y--;
+      }
+      nums1[i] = max;
+    }
+  };
+  ```
+  
+  
+  
   - 比如各种动态规划问题，比如背包，N的体积如何价值最大化。如果正向从0开始凑，就会发现后面的问题无比复杂，还不如从**尾**开始，确定最后一个要放进去的是什么，比如M，然后问题就变成了（N - M）下的背包问题，如果就变成了一个可以递归的子问题。加上缓存之后，就能高效得解出问题
+
+
+
+- 前缀技巧
+
+前缀和主要适⽤的场景是原始数组不会被修改的情况下，**频繁查询某个区间的累加和**。
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20220601144559830.png" alt="image-20220601144559830" style="zoom:50%;" />
+
+```javascript
+var NumArray = function(nums) {
+    this.preSum = new Array(nums.length + 1).fill(0);
+    for (let i = 1; i <= nums.length; i++) {
+        const element = +nums[i-1];
+        this.preSum[i] = this.preSum[i-1] + element;
+    }
+};
+
+NumArray.prototype.sumRange = function(left, right) {
+    return this.preSum[right + 1] - this.preSum[left];
+};
+```
+
+通过在初始化时，计算出每个元素他之前所有元素的和并存起来，当求ab之前的和时，就等于b的后一位的sum减去a前一位的所有sum。这就非常高效。 同理可以应用到矩阵中去（304题）
+
+**重要核心：** preSum需要留空一位，`preSum[i]`表示从0到i-1位的总和。为什么要留一位？是为了当题目要算sumRange(0,0)这样的case时，不会越界，表示下标0的前一位sum就是0
+
+同理304题，矩阵区间求和
+
+```javascript
+var NumMatrix = function (matrix) {
+  // preSum[x][y]表示 [0,0] 到 [x-1,y-1]的总和
+  const m = matrix.length;
+  const n = matrix[0].length;
+  const preSum = new Array(m + 1);
+  for (let i = 0; i < m + 1; i++) {
+    preSum[i] = new Array(n + 1).fill(0);
+  }
+
+  for (let i = 1; i < m + 1; i++) {
+    for (let j = 1; j < n + 1; j++) {
+      preSum[i][j] =
+        preSum[i - 1][j] +
+        preSum[i][j - 1] +
+        matrix[i - 1][j - 1] -
+        preSum[i - 1][j - 1];
+    }
+  }
+  this.preSum = preSum;
+};
+
+NumMatrix.prototype.sumRegion = function (row1, col1, row2, col2) {
+  return (
+    this.preSum[row2 + 1][col2 + 1] -
+    this.preSum[row1][col2 + 1] -
+    this.preSum[row2 + 1][col1] +
+    this.preSum[row1][col1]
+  );
+};
+```
+
+
+
+- 有序特征
+
+很多题目都有数组或者链表已经有序的特征，然后比如要去重，这时候即使忽略这个特征最终也是可以做出答案的，但是就丧失了一种优雅的解法。此时会发现在有序的情况下重复的数字一定是挨在一起的。所以可以用**快慢指针**来处理问题
+
+1. 快指针探路。如果快指针和慢指针的值不同，那么慢指针可以+1，然后把快指针的值赋值给慢指针
+2. 否则快指针继续向前，直到队尾
+
+- 计算各种字符串子串（不是子序列）都要优先考虑滑动窗口法，因为子串是连续的，理论上滑动肯定能找到最终解的（第3/76题）
+  - 滑动窗口的核心就是双指针，fast一直向右滑，直到满足条件停下来，然后low向右滑，直到不满足条件停止，此时得到的肯定是一个符合答案的相对解
+  - 然后fast继续右滑，循环上一步，直到fast到了尾巴。每次左指针停止的时候计算下是否最优解
+  - 可能需要两个Map来记录值，一个是窗口中存在的值，一个是必须满足的值，两者用来做比对，看是否满足需求
+
+
+
+- 很酷的swap，但仅限于数字内容
+
+```javascript
+const swap = (i, j) => {  // 假设 i j 内容为1和2
+    nums1[i] ^= nums2[j];  // nums1[i] = 3
+    nums2[j] ^= nums1[i]; // nums[j] = 1
+    nums1[i] ^= nums2[j]; // nums[i] = 2
+  };
+```
+
+- 更实用的swap
+
+```javascript
+const swap = (array, a, b) => [ array[ b ], array[ a ] ] = [ array[ a ], array[ b ] ]
+```
+
+
+
+
+
+- 原地修改
+
+经常会有题目要求是原地修改，比如27题移动元素，要求移除指定元素，此时可以使用快慢指针，如果元素不等于目标，则快慢指针一起前进，否则慢指针不动，快指针前进
+
+```javascript
+// 原地删除数组中的undefined
+slow = 0
+fast = 0
+while (fast < chars.length) {
+  if (chars[fast] !== undefined) {
+    chars[slow] = chars[fast];
+    slow++;
+  }
+  fast++;
+}
+```
+
+
+
+- 发散的双指针
+
+典型用法就是寻找`最长的回文子串`
+
+```
+String longestPalindrome(String s) {
+ String res = "";
+ for (int i = 0; i < s.length(); i++) {
+ // 以 s[i] 为中⼼的最⻓回⽂⼦串
+ String s1 = palindrome(s, i, i);
+ // 以 s[i] 和 s[i+1] 为中⼼的最⻓回⽂⼦串
+ String s2 = palindrome(s, i, i + 1);
+ // res = longest(res, s1, s2)
+ res = res.length() > s1.length() ? res : s1;
+ res = res.length() > s2.length() ? res : s2;
+ }
+ return res;
+}
+```
 
 
 
@@ -592,3 +780,40 @@ var lowestCommonAncestor = function (root, p, q) {
 };
 ```
 
+
+
+**给一个数字比如1234，求出当前数字随意排列后，比当前数字大，但是是所有比当前数字大的组合中最小的**
+
+比如给出1234， 答案就是1243
+解释： 比如4321肯定比1234大，但是肯定不是那个最小的。 1243就是所有排列组合里面比1234大，但又是所有比它大的数字里最小的
+
+```javascript
+const param = 51342;
+
+const findNextMax = (target) => {
+  const nums = `${target}`.split("").map(Number);
+  const possibleAns = [];
+  for (let i = nums.length - 1; i >= 0; i--) {
+    const cur = nums[i];
+    for (let j = i - 1; j >= 0; j--) {
+      const next = nums[j];
+      if (cur > next) {
+        const temp = [...nums];
+        [temp[i], temp[j]] = [temp[j], temp[i]];
+        possibleAns.push(+temp.join(""));
+      }
+    }
+  }
+  return possibleAns.length ? Math.min(...possibleAns) : null;
+};
+
+const result = findNextMax(param);
+console.log("result: ", result);
+```
+
+思路： 
+
+1. 肯定要从尾巴动手，这样才能找得到最小的
+2. 找到尾巴上的数，然后找到比它小的里面位置最接近的，然后交换，肯定结果是后者大。但是不能保证是最小的那个，比如51342结果就是52341，显然这是不对的，51432才是更优解。这个思路只能求出，确定要移动当前这个数字的情况下的最优解
+3. 所以这个方案是不全面的，我们只能一位位递推，每前进一位，求出确定移动当前位的情况下，能得到的最优解。也就是说我们得到了每个数字被移动得到的最优解，最后从中求一个最小值即可
+4. 每个数字只要考虑自己前面的数字比较即可，后面的已经被后面的数字考虑过了

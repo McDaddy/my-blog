@@ -28,7 +28,7 @@ type PartialPoint = PartialPointX | PartialPointY;
 type Data = [number, string];
 ```
 
-  3 . 都可以继承（type其实是组合），但语法不同。 可以互相混着继承，注意interface是可以多重集成的
+  3 . 都可以继承（type其实是组合），但语法不同。 可以互相混着继承，注意interface是可以多重继承的
 
 ```typescript
 interface PartialPointX { x: number; }
