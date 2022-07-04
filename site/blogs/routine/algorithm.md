@@ -25,6 +25,7 @@ categories:
 ### 反转链表
 
 ```javascript
+// 迭代
 var reverseList = function (head) {
   let prev = null;
   let current = head;
@@ -35,6 +36,16 @@ var reverseList = function (head) {
     current = next;
   }
   return prev;
+};
+// 递归
+var reverseList = function (head) {
+  if (!head || !head.next) {
+    return head;
+  }
+  const last = reverseList(head.next);
+  head.next.next = head;
+  head.next = null;
+  return last;
 };
 ```
 
@@ -119,6 +130,203 @@ var reverseList = function (head) {
 1. 在二叉树的第i层，最多有2的`i-1`次方的节点数
 2. 如果深度为k，那么最多有2的k次方减1个节点
 3. 度为0的节点数量比度为2的节点对一个
+
+### 遍历
+
+**前中后序是遍历⼆叉树过程中处理每⼀个节点的三个特殊时间点**
+
+>  快速排序就是个⼆叉树的前序遍历，归并排序就是个⼆叉树的后序遍历
+
+- 快排： 选一个数作为root，**先遍历root**，然后比root小的放进左子树，大的放进右子树。然后依次递归遍历左子树和右子树
+- 归并：分割数组，一半为左子树，一半为右子树，先把左右子树遍历完，就得到了排好序的左右子树，此时**最后回来遍历**虚拟的root，把两边合并一下
+
+⼆叉树题⽬的递归解法可以分两类思路，第⼀类是**遍历⼀遍⼆叉树得出答案**，第⼆类是**通过分解问题计算出答案**，这两类思路分别对应着 回溯算法核⼼框架 和 动态规划核⼼框架。
+
+如计算二叉树的最大深度，两种方法
+
+```javascript
+// 全遍历
+// 记录最⼤深度
+int res = 0;
+// 记录遍历到的节点的深度
+int depth = 0;
+// 主函数
+int maxDepth(TreeNode root) {
+  traverse(root);
+  return res;
+}
+// ⼆叉树遍历框架
+void traverse(TreeNode root) {
+  if (root == null) {
+  	return;
+  }
+  // 前序位置
+  depth++;
+   if (root.left == null && root.right == null) {
+   // 到达叶⼦节点，更新最⼤深度
+  	res = Math.max(res, depth);
+   }
+  traverse(root.left);
+  traverse(root.right);
+  // 后序位置
+  depth--;
+}
+
+
+// 分界问题，动态规划
+const getDepth = (root) => {
+  if (!root) {
+    return 0;
+  }
+  return Math.max(getDepth(root.left), getDepth(root.right)) + 1;
+};
+```
+
+前序位置的代码只能从函数参数中获取⽗节点传递来的数据，⽽后序位置的代码不仅可以获取参数数据，还可以获取到⼦树通过函数返回值传递回来的数据。**所以在后续位置上可以做很多操作**，⼀旦发现题⽬和⼦树有关，那⼤概率要给函数设置合理的定义和返回值，在后序位置写代码了。
+
+如计算二叉树最大直径，在后序位置可以得到子树的最大值，
+
+```javascript
+var diameterOfBinaryTree = function (root) {
+  let max = 0;
+  const findMaxDepth = (root) => {
+    if (!root) {
+      return 0;
+    }
+
+    const maxLeftSide = findMaxDepth(root.left);
+    const maxRightSide = findMaxDepth(root.right);
+
+    max = Math.max(maxLeftSide + maxRightSide, max);
+    return Math.max(maxLeftSide, maxRightSide) + 1;
+  };
+  findMaxDepth(root);
+
+  return max;
+};
+```
+
+计算二叉树每层的最大值（**用递归的方式做层序遍历**）
+
+```javascript
+var largestValues = function (root) {
+  const ans = [];
+  const traverse = (root, depth) => {
+    if (!root) {
+      return;
+    }
+    const max = ans[depth];
+    if (max === undefined) {
+      ans[depth] = root.val;
+    } else {
+      ans[depth] = Math.max(root.val, max);
+    }
+    traverse(root.left, depth + 1);
+    traverse(root.right, depth + 1);
+  };
+  traverse(root, 0);
+  return ans;
+};
+```
+
+
+
+**从前序与中序遍历序列构造二叉树**
+
+核心思想：
+
+- 分割片段 - 确保两头的start/end是对应了同一颗子树
+  - 通过前序片段的第一位可以得到当前子树的root
+  - 通过root的值找到它在中序片段的位置index，此时index左边就是左子树，右边就是右子树
+  - 通过上一步得到的左子树知道左子树的节点个数size，这样`size + preStart `就是左子树在前序的end
+  - 以此类推，就得到了整个左右子树的范围
+- 得到范围后，递归这个方法，构建左右子树。
+
+```javascript
+var buildTree = function (preorder, inorder) {
+  const build = (preStart, preEnd, inStart, inEnd) => {
+    if (preStart > preEnd || inStart > inEnd) {
+      return null;
+    }
+
+    const rootValue = preorder[preStart];
+    const root = new TreeNode(rootValue);
+    const inRootIndex = inorder.indexOf(rootValue);
+    const preSize = inRootIndex - inStart;
+
+    root.left = build(
+      preStart + 1,
+      preStart + preSize,
+      inStart,
+      inRootIndex - 1
+    );
+    root.right = build(preStart + preSize + 1, preEnd, inRootIndex + 1, inEnd);
+    return root;
+  };
+
+  return build(0, preorder.length - 1, 0, inorder.length - 1);
+};
+```
+
+
+
+### 搜索二叉树
+
+搜索二叉树的特点是，任意节点的左子树所有点的值都比当前节点小，右子树的所有值都比当前值大。同时**树里不应该有重复的数**
+
+最大的特性就是：**中序遍历的结果是一个有序的数组**
+
+```java
+// 查找搜索二叉树
+TreeNode searchBST(TreeNode root, int target) {
+ if (root == null) {
+ 	return null;
+ }
+ // 去左⼦树搜索
+ if (root.val > target) {
+ 	return searchBST(root.left, target);
+ }
+ // 去右⼦树搜索
+ if (root.val < target) {
+ 	return searchBST(root.right, target);
+ }
+ return root;
+}
+```
+
+**验证搜索二叉树的合法性**
+
+不仅仅要求根比左大比右小，更要看整颗子树的情况，所以要把最大最小值带下去
+
+```javascript
+var isValidBST = function (root) {
+  const check = (node, min, max) => {
+    if (!node) {
+      return true;
+    }
+    // 注意都是加上等于这个条件，不然就会出现下面这种情况
+    //     3
+    //   1    2
+    //  0  3
+    if (min !== null && node.val <= min) {
+      return false;
+    }
+    if (max !== null && node.val >= max) {
+      return false;
+    }
+    // 相当于是个后序
+    // 检查左子树时，自己就是最大值，同时传下去上面的最小值
+    // 检查右子树时，自己就是最小值，同时传下去上面的最大值
+    return check(node.left, min, node.val) && check(node.right, node.val, max);
+  };
+
+  return check(root, null, null);
+};
+```
+
+
+
+
 
 ### 完全二叉树
 
@@ -228,7 +436,7 @@ var countNodes = function (root) {
 2. 函数的意义是，传入一个节点数组，将数组的节点值都推入最终结果，同时将他们的所有子节点收集起来，再次传给自身函数。即`遍历节点数组，推入结果集，并收集下一层的节点数组`，那么下一层节点数组的结果怎么呈现呢，就需要递归
 3. 边界即某一次函数执行结束后，没有收集到任何子节点，表示已经走到了最后一层
 
-又比如计算一个二叉树的深度
+又比如计算一个**二叉树的深度**
 
 1. 明确函数：一个树的深度等于，`1 + 左子树的深度和右子树的深度的最大值`，而左右子树的深度怎么来，就是需要递归
 2. 如果只有根节点，带入函数就是1
@@ -402,13 +610,9 @@ const r3 = heap.pop(); // 100
 
 ## 回溯
 
-回溯主要用在数字的**全排列**或者例举出所有可能性的问题上。回溯的本质就是暴力穷举
+回溯主要用在数字的**全排列**或者例举出**所有可能性**的问题上。回溯的本质就是**暴力穷举**
 
 列出所有可能性其实就是所有可选类型的排列组合，当选择A为第一个选项后，选项数-1，已选项+1。 剩下的选项重复重复这个步骤。
-
-当所有选项都用完了，说明一条路走到底了，即一种排列完成了。此时就需要开始**回溯**，从最后一层返回回去，比如倒数第二层，可能有AB两个选择，之前选了A，那么这次就要选B。例子46题全排列
-
-但是也不能思维定式，比如复原ip问题 93题，这里并没有撤销选择的过程，因为数字的顺序是固定的，它会按照顺序一位一位得去穷举，比如`11111`这个数字，它会取出`1`然后去递归穷举`1111`的可能性，完了之后再取`11`然后穷举`111`的可能性，以此类推。
 
 ```javascript
 // 排列组合的公式
@@ -420,43 +624,151 @@ for 选择 in 选择列表:
     # 撤销选择
     路径.remove(选择)
     将该选择再加入选择列表
+```
 
+
+
+回溯的应用无外乎三种场景：**排列，子集，组合**
+
+### 排列
+
+46题全排列
+
+**本质上就是深度遍历一棵决策树**
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20220704105331744.png" alt="image-20220704105331744" style="zoom:50%;" />
+
+考虑**三个元素**
+
+1. 路径：也就是已经选择了的节点，我们称之为`track`
+2. 可选列表：表示当前可以选择的节点列表，成为`opts`
+3. 结束条件：什么时候到底结束的条件
+
+**具体过程：**
+
+1. 定义两个变量，result存放最终结果，track存放**路径**
+2. 在开头定义**结束条件**，这里的条件是当opts为空的时候表示到底了，然后**return**，不要继续下面的递归了
+3. 从根开始，opts是全量， 遍历第一个子节点，加入track，同时开始递归，把opts中的第当前节点filter掉
+4. 未触发结束条件，则继续第三步，直到消耗掉opts能满足结束条件
+5. 满足结束条件表示，在当前的选择下，后面的选择都已经穷举完了
+   1. 比如说track中只有1，当递归完成时，说明当第一位是1这个路径时，后面的路径[2, 3]/[3, 2] 都已经排好了
+   2. 即说明1占据这个位置的所有可能性都已经举完了
+   3. 所以1就可以退位，让给后面的元素进来，所以要pop它
+6. 注意最后在结束条件添加result的时候，要给track做一个**浅拷贝**，不然最终的结果就都一样了
+
+```javascript
 // 全排列
-const backTrack = (selection, options, result) => {
-  if (!options.length) {
-      result.push([...selection]);
-      return;
-  }
-  for (let i = 0; i < options.length; i++) {
-      selection.push(options[i]);
-      const opts = [...options];
-      opts.splice(i, 1);
-      backTrack(selection, opts, result);
-      selection.pop();
-  }
-}
-
 const result = [];
-backTrack([], nums, result);
+const track = [];
 
-// 不能移动位置的组合大致公式
-const ans = [];
-const backtrack = (start, tempAns) => {
-    if (start === s.length) { // 表示走到最后，填入答案
-      ans.push(tempAns);
-      return;
-    }
-    let temp = "";
-    for (let end = start; end < s.length; end++) {
-      const cur = s[end];
-      temp = `${temp}${cur}`;
-      if (isValid(temp)) {
-        const _tempAns = [...tempAns];
-        _tempAns.push(temp);
-        backtrack(end + 1, _tempAns); // 如果当前组合合理，那么就从当前的后一位开始重新算，同时把临时结果传下去
-      }
+const backTrack = (opts) => {
+  if (!opts.length) {
+    result.push([...track]); // 
+    return;
+  }
+  for (let i = 0; i < opts.length; i++) {
+    track.push(opts[i]);
+    backTrack(opts.filter(_opt => _opt !== opts[i]));
+    track.pop();
+  }
+};
+backTrack(nums);
+return result;
+```
+
+### 子集
+
+与全排列基本类似，区别在于子集的元素顺序是固定的，所以只需要简单调整下
+
+1. 全排列传入的是剩下可选的opts
+2. 子集传入的是接下来的index，index只能一路加加，所以就不会出现重复的元素，相当于变相限制这个opts只能是后面的元素
+
+```javascript
+var subsets = function (nums) {
+  const ans = [];
+  const track = [];
+
+  const backtrack = (startIndex) => {
+    ans.push([...track]);
+    for (let i = startIndex; i < nums.length; i++) {
+      const cur = nums[i];
+      track.push(cur)
+      backtrack(i + 1);
+      track.pop();
     }
   };
+  backtrack(0);
+  return ans;
+};
+```
+
+### 组合
+
+77题组合
+
+其实就是延续前面两种情况，区别是在**结束条件**上做一些限制
+
+```javascript
+var combine = function (n, k) {
+  const ans = [];
+  const track = [];
+
+  const backtrack = (startIndex) => {
+    if (track.length === k) {
+      ans.push([...track]);
+      return;
+    }
+    for (let i = startIndex; i <= n; i++) {
+      track.push(i);
+      backtrack(i + 1);
+      track.pop();
+    }
+  };
+
+  backtrack(1);
+
+  return ans;
+};
+```
+
+### 复杂例子
+
+93题，复原IP地址
+
+也是在上面的基础上做变形
+
+```javascript
+var restoreIpAddresses = function (s) {
+  const result = [];
+  const track = [];
+
+  const backTrack = (startIndex) => {
+    if (track.length === 4) {
+      if (startIndex === s.length) {
+        result.push(track.join("."));
+      }
+      return;
+    }
+
+    for (let i = startIndex; i < s.length; i++) {
+      let _temp = s[i];
+      while (+_temp >= 0 && +_temp <= 255) {
+        track.push(+_temp);
+        backTrack(i + 1);
+        if (+_temp === 0) {
+          track.pop();
+          break;
+        }
+        i++;
+        _temp = _temp + s[i];
+        track.pop();
+      }
+      break;
+    }
+  };
+  backTrack(0);
+  return result;
+};
 ```
 
 
@@ -526,42 +838,43 @@ console.log(f(15)) // 3
 
 遇到字符串计数相关的问题，可以考虑用Map来做count计数
 
-- 逆向思维
-  - 比如[合并排序的数组](https://leetcode.cn/problems/sorted-merge-lcci/solution/mian-shi-ti-1001-he-bing-pai-xu-de-shu-zu-by-leetc/)这题，表面上是要从前到后合并排序，如果这么做的话就要涉及数组的移位，计算空值等问题。如果换个思路，从尾巴上开始，从两个数组中取出最大的放在最后的位置。这样就规避了上面的问题且要考虑的边界问题就少很多。
-  
-  ```javascript
-  var merge = function (nums1, m, nums2, n) {
-    let x = m - 1;
-    let y = n - 1;
-    for (let i = m + n - 1; i >= 0; i--) {
-      let max;
-      if (x < 0) {
-        nums1[i] = nums2[y--];
-        continue;
-      }
-      if (y < 0) {
-        nums1[i] = nums1[x--];
-        continue;
-      }
-      if (nums1[x] > nums2[y]) {
-        max = nums1[x];
-        x--;
-      } else {
-        max = nums2[y];
-        y--;
-      }
-      nums1[i] = max;
+### 逆向思维
+
+比如[合并排序的数组](https://leetcode.cn/problems/sorted-merge-lcci/solution/mian-shi-ti-1001-he-bing-pai-xu-de-shu-zu-by-leetc/)这题，表面上是要从前到后合并排序，如果这么做的话就要涉及数组的移位，计算空值等问题。如果换个思路，从尾巴上开始，从两个数组中取出最大的放在最后的位置。这样就规避了上面的问题且要考虑的边界问题就少很多。
+
+```javascript
+var merge = function (nums1, m, nums2, n) {
+  let x = m - 1;
+  let y = n - 1;
+  for (let i = m + n - 1; i >= 0; i--) {
+    let max;
+    if (x < 0) {
+      nums1[i] = nums2[y--];
+      continue;
     }
-  };
-  ```
-  
-  
-  
-  - 比如各种动态规划问题，比如背包，N的体积如何价值最大化。如果正向从0开始凑，就会发现后面的问题无比复杂，还不如从**尾**开始，确定最后一个要放进去的是什么，比如M，然后问题就变成了（N - M）下的背包问题，如果就变成了一个可以递归的子问题。加上缓存之后，就能高效得解出问题
+    if (y < 0) {
+      nums1[i] = nums1[x--];
+      continue;
+    }
+    if (nums1[x] > nums2[y]) {
+      max = nums1[x];
+      x--;
+    } else {
+      max = nums2[y];
+      y--;
+    }
+    nums1[i] = max;
+  }
+};
+```
 
 
 
-- 前缀技巧
+比如各种动态规划问题，比如背包，N的体积如何价值最大化。如果正向从0开始凑，就会发现后面的问题无比复杂，还不如从**尾**开始，确定最后一个要放进去的是什么，比如M，然后问题就变成了（N - M）下的背包问题，如果就变成了一个可以递归的子问题。加上缓存之后，就能高效得解出问题
+
+
+
+### 前缀技巧
 
 前缀和主要适⽤的场景是原始数组不会被修改的情况下，**频繁查询某个区间的累加和**。
 
@@ -621,7 +934,7 @@ NumMatrix.prototype.sumRegion = function (row1, col1, row2, col2) {
 
 
 
-- 有序特征
+### 有序特征
 
 很多题目都有数组或者链表已经有序的特征，然后比如要去重，这时候即使忽略这个特征最终也是可以做出答案的，但是就丧失了一种优雅的解法。此时会发现在有序的情况下重复的数字一定是挨在一起的。所以可以用**快慢指针**来处理问题
 
@@ -634,6 +947,8 @@ NumMatrix.prototype.sumRegion = function (row1, col1, row2, col2) {
   - 可能需要两个Map来记录值，一个是窗口中存在的值，一个是必须满足的值，两者用来做比对，看是否满足需求
 
 
+
+### 快速swap
 
 - 很酷的swap，但仅限于数字内容
 
@@ -653,9 +968,7 @@ const swap = (array, a, b) => [ array[ b ], array[ a ] ] = [ array[ a ], array[ 
 
 
 
-
-
-- 原地修改
+### 原地修改
 
 经常会有题目要求是原地修改，比如27题移动元素，要求移除指定元素，此时可以使用快慢指针，如果元素不等于目标，则快慢指针一起前进，否则慢指针不动，快指针前进
 
@@ -674,7 +987,7 @@ while (fast < chars.length) {
 
 
 
-- 发散的双指针
+### 发散的双指针
 
 典型用法就是寻找`最长的回文子串`
 
@@ -693,6 +1006,43 @@ String longestPalindrome(String s) {
  return res;
 }
 ```
+
+
+
+### 单调栈
+
+单调栈就是一个有序的栈，递增或者递减。用来处理一些特定的问题，比如*下一个更大的数*(496)，给定一个数组，找出每一位接下来比他自己大的数，并放在它的位子上。比如下面的例子，它就是一个递减的数组
+
+**核心思想：**
+
+1. 维护一个栈，里面存放比当前点值大的数，因为是push进去的，所以靠近栈顶的就离当前点最近
+2. 从数组的尾巴开始遍历，看栈是否为空
+   1. 空的话，表示后面没有比当前大的数，返回-1
+   2. 不空，从栈尾取数，如果比当前小，那就说明比当前更大的还在后面，这位没用了直接pop出去，直到找到比当前值大的数或者栈为空
+3. 此时栈顶的元素就是下一个比当前大的数
+
+```javascript
+var nextGreaterElement = function (nums1, nums2) {
+  const map = {};
+  const stack = [];
+  for (let i = nums2.length - 1; i >= 0; i--) {
+    const cur = nums2[i];
+    while (stack.length && stack[stack.length - 1] < cur) {
+      stack.pop();
+    }
+    map[cur] = !stack.length ? -1 : stack[stack.length - 1];
+    stack.push(cur);
+  }
+  const ans = [];
+  for (let i = 0; i < nums1.length; i++) {
+    const cur = nums1[i];
+    ans.push(map[cur]);
+  }
+  return ans;
+};
+```
+
+除此之外，栈除了可以存值，还可以存下标，比如*每日温度（739）*，通过记录下标，可以知道两个值之间相距的距离
 
 
 
