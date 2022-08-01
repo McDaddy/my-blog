@@ -832,6 +832,44 @@ console.log(f(15)) // 3
 
 
 
+## BFS
+
+BFS的最常见使用场景，就是**寻找最短路径**，时间复杂度会比DFS强很多
+
+二叉树的层序遍历其实就是BFS的一个具体实现。大致框架就是
+
+1. 准备一个**队列**，注意是队列，要先进先出，所以要用shift配合push
+2. 以一层为单位，做一轮遍历，遍历完了也就push完了下一层的元素
+3. 期间加入终止条件
+
+```javascript
+// 二叉树最小深度
+var minDepth = function (root) {
+  if (!root) {
+    return 0;
+  }
+  const queue = [root];
+  let depth = 1;
+  while (queue.length) {
+    const size = queue.length;
+    for (let i = 0; i < size; i++) {
+      const cur = queue.shift();
+      if (!cur.left && !cur.right) {
+        return depth;
+      }
+      cur.left && queue.push(cur.left);
+      cur.right && queue.push(cur.right);
+    }
+    depth++;
+  }
+  return depth;
+};
+```
+
+
+
+
+
 ## 通用技巧
 
 因为js里面0直接去判断非空会为false，所以有的时候0为有意义的值的时候，比如记录指针下标，最后要判断下标是不是为空。如果这时候把空指针用`null`来指定，那接下来所有的判断都要加上`x !== null` 非常不方便，可以将下标设置为`-1`，然后判断是不是大于等于0就好
