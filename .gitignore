@@ -3,3 +3,5 @@ node_modules/
 
 /express-test/node_modules
 /express-test/public
+
+.vuepress/dist/
