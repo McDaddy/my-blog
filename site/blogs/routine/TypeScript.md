@@ -459,7 +459,7 @@ type A4 = P<'x' | 'y'>
 
 
 
-## 可赋值性/协变/逆变/双向协变
+## 可赋值性/协变/逆变/双向逆变
 
 ```javascript
 // 可赋值性 B继承于A, B类型可以赋值给A类型，反之不能
@@ -486,7 +486,7 @@ let bFunc: (x: B) => void;
 aFunc = bFunc; // error  假设bFunc中用到了age, 然后可以正确赋值给aFunc, 此时调用时传入{ name: '1' },是不会报错的，但实际执行的时候就会报错，所以是不安全的
 bFunc = aFunc; // OK 相反因为b是更具体的，虽然aFunc不会用到age这个参数，但是如果入参多传一个age也不会对结果产生影响，所以是安全的
 
-// 双向协变 事实上我们实际开发中遇到的都是双向协变，因为这是ts的默认策略，典型的就是Event的实现
+// 双向逆变 事实上我们实际开发中遇到的都是双向协变，因为这是ts的默认策略，典型的就是Event的实现
 // 虽然我们传入的是更具体的MouseEvent，就等于上例中把bFunc赋值给aFunc，但这里并不会报错，反而这是一种设计模式的实现
 // tsconfig.js中可以调整strictFunctionType来严格控制协变逆变
 // lib.dom.d.ts中EventListener的接口定义
@@ -515,6 +515,50 @@ window.addEventListener('click', (e: Event) => {});
 window.addEventListener('mouseover', (e: MouseEvent) => {});
 
 ```
+
+> 声明对象方法的时候，只能用声明 `函数属性` (Property with function type)的形式，而不能用声明 `对象方法` (Object method)的形式声明
+
+```javascript
+// method shorthand syntax
+// 这是方法
+interface T1 {
+  func(arg: string): number;
+}
+// regular property with function type
+// 这是函数
+interface T2 {
+  func: (arg: string) => number;
+}
+```
+
+在 `TypeScript` 开启了 `strict` 选项之后，会默认打开 `strictFunctionTypes` 选项。在开启这个选项之后，方法的参数是 **双向逆变** 的，函数的参数是 **逆变** 的
+
+根据上面的描述，**双向逆变是更加宽松的**，所以风险更大
+
+```typescript
+// method shorthand syntax
+interface T1 {
+  func(arg: HTMLElement): number;
+}
+// regular property with function type
+interface T2 {
+  func: (arg: HTMLElement) => number;
+}
+const func = (arg: HTMLCanvasElement): number => arg.toDataURL().length;
+
+const t1: T1 = {
+	// no type error, but will cause runtime error
+	func,
+};
+const t2: T2 = {
+	// ts error because `HTMLElement` is not compatible with `HTMLCanvasElement`
+	func,
+};
+```
+
+所以为了避免双向逆变，要把方法都定义成函数
+
+
 
 
 
