@@ -560,8 +560,6 @@ const t2: T2 = {
 
 
 
-
-
 ## 谓词
 
 ```javascript
