@@ -147,6 +147,8 @@ npm i
 
 `npm pack` 命令可以快速打出一个没有node_modules的tgz包
 
+
+
 ## 如何处理依赖平台底层的包
 
 比如`node-sass`和`esbuild`这两个库都是依赖底层c++的，如果拿着MacOS的node_modules去RedHat或者windows直接编译就会报错。此时就需要通过命令做个转化
@@ -156,6 +158,29 @@ npm rebuild node-sass
 ```
 
 
+
+## 如何处理嵌套依赖不受控的问题
+
+最典型的就是`@types/react`的问题，主依赖可能是17.x，但是某个嵌套的依赖把`@types/react`的依赖写成了`*`，这样就会导致每次重新下载依赖都会下载最新版即`18.x`，而两者是不兼容的，所以要如何才能控制内层的依赖版本呢，这里就用到了**resolutions**，在`package.json`中
+
+```json
+{
+  "scripts": {
+    "preinstall": "npx npm-force-resolutions"
+  },
+  "resolutions": {
+    "@types/react": "17.0.30"
+  },
+  ...
+  "devDependencies": {
+    "@types/react": "^17.0.39"
+  }
+}
+```
+
+
+
+这里用到了`npm-force-resolutions`来做到强制使`resolutions`生效，因为各个npm/yarn版本的表现不一致
 
 
 

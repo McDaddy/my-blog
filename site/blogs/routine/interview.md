@@ -989,31 +989,58 @@ taskPool.exec();
 
 
 
-#### 自我介绍
+#### preload与prefetch的区别
 
-- 外企，期间也去过美国工作过4个月时间
-- 阿里云
-- 目前负责的是开源项目的前端团队，
+preload
+
+- preload 是写在服务端返回的HTML中的。用法如下，必须要加`as`来告诉浏览器你要加载的是什么类型的资源，否则就会被认为是普通的xhr，浏览器会按照as中的类型来按优先级下载
+
+```html
+<link rel="preload" href="https://tiven.cn/js/test.js" as="javascript">
+```
+
+- 什么时候用？ 就是页面加载完成后必须会用到的资源，让浏览器提前加载指定资源(**加载后并不执行**)，需要执行时再执行。如果不确定是否一定会用到的资源，不要用preload
+- 比如同样是加载script，普通script标签是会阻塞渲染的，但是preload不管成功与否是不会阻塞的
+- 如果跨域需要带上`crossorigin`
+
+prefetch
+
+```javascript
+<link rel="prefetch" href="./js/01.js">
+```
+
+- 是告诉浏览器，接下来跳转的页面可能需要用到的资源，所以它下载下来可能用到也可能不会用到
+- 它的优先级非常低，是在浏览器闲时才会触发
+
+两者的核心区别：
+
+1. preload针对当前页，或者说根html，是必须用到的资源。而prefetch针对即将打开的页面，资源不一定用到
+2. preload优先级高，prefetch优先级低
 
 
 
-痛点：
+#### samesite问题
 
-战略调整
+什么是samesite？
 
-薪资
+samesite是一个Cookie的属性
 
-路途
+- SameSite=None：无论是否跨站都会发送 Cookie
 
+- SameSite=Lax：允许部分第三方请求携带 Cookie
 
+- SameSite=Strict：仅允许同站请求携带 Cookie，即当前网页 URL 与请求目标 URL 完全一致
 
-前沿：
+它的出现主要是为了**杜绝CSRF攻击**，原理就是原本的CSRF攻击就是利用了http请求自动会带上cookie，在伪造网站或邮件中引诱用户点击操作，而操作后因为带上了cookie就通过了身份验证。而开启了samesite之后，不管是脚本，接口还是iframe都无法去发送这个cookie了，从而从本质上解决了CSRF问题
 
-1. Serverless
-2. AI
-3. webassemble
-4. 低代码
-5. AR/VR/**WebRTC**
+第二，这也限制了广告插件的存在，网页广告插件的原理就是，如以下场景
+
+1. 在百度中搜索耳机，此时埋在百度中的alimama插件就会把我们搜索的信息发送到ali的服务器，并附带上能标识当前身份的cookie（domain是alimama）
+2. 当打开淘宝时，这个插件依然存在，通过cookie它就能识别到当前这个人就是刚才搜耳机的那个，并通知淘宝。接下来就能刷到相关的推荐了
+
+由于不能发送三方cookie了，所以这种广告行为也就很难实现了
+
+**同站不同于跨域**，同站只需要一级域名相同即可
 
 
 
