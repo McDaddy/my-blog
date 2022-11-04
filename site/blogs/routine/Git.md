@@ -212,3 +212,49 @@ git push -u origin // 推到origin同名的branch
 git push -u origin // 推到origin指定名称的branch
 ```
 
+## 如何在一台机器上同时管理gitlab和github的账号
+
+**.gitconfig**
+
+在个人账号的根目录创建一个`.gitconfig`文件
+
+配置user和email作为全局使用
+
+添加一个`includeIf`的配置，下面表示当git工程在`~/work/github-repo/`下面时，需要去找`~/.gitconfig_github_work`这个配置文件
+
+```
+[user]
+	email = chenweitao.mcdaddy@bytedance.com
+	name = chenweitao
+[includeIf "gitdir:~/work/github-repo/"]
+    path = ~/.gitconfig_github_work
+```
+
+然后在`~/.gitconfig_github_work`里也配置下用户信息，这样就可以在不同的路径下用不同的账号拉代码commit代码
+
+```
+[user]
+    name = McDaddy
+    email = mcdaddychen@126.com
+```
+
+**ssh**
+
+一般情况下我们都要配置ssh来做免登录，那么怎么同时给两个域名设置ssh呢
+
+核心在于`~/.ssh/config`，为不同的host配置不同的`IdentityFile`即可
+
+```
+Host github
+HostName github.com
+User mcdaddychen@126.com
+PreferredAuthentications publickey
+IdentityFile ~/.ssh/id_ed25519_github
+
+Host gitlab
+HostName gitlab.org
+User chenweitao.mcdaddy@gitlab.com
+PreferredAuthentications publickey
+IdentityFile ~/.ssh/id_ed25519_gitlab
+```
+

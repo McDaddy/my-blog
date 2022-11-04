@@ -81,3 +81,8 @@ document.querySelectorAll('div') === $$('div')
 ## 通过initiator直接跳转到请求触发的代码
 
 ![img](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/initiator.gif)
+
+
+## 如何调试通过hover js动态产生的DOM
+
+先把dev tool切换到Source面板，在这个DOM出现在页面之后，**按下F8**，这样就能停住当前页面所有的js代码执行，这样就阻止了停止hover之后DOM被JS销毁的问题！
