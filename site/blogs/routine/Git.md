@@ -64,6 +64,8 @@ $ git push
 
 场景2： 分支被reset回滚了，看git log是看不到那些已经被回滚的commit的，这时候只能git reflog来查看完整的commit记录
 
+场景3：commit被本地drop了，通过`git checkout -b xxx ref-sha` 就可以恢复到被删除的commit
+
 ## git pull
 
 ```shell
@@ -257,4 +259,9 @@ User chenweitao.mcdaddy@gitlab.com
 PreferredAuthentications publickey
 IdentityFile ~/.ssh/id_ed25519_gitlab
 ```
+
+## 如何在GitHub上删除敏感信息
+
+- 首先我们要通过`git rebase -i HEAD~x`来本地Drop掉相关的commit，然后强推，这样在分支中就找不到敏感信息了。但是如果有人保留了历史的commit url那还是可以拿到当时的commit的，比如`https://github.com/McDaddy/my-blog/blob/40e15dd93d1964de/site/blogs/routine/Git.md`所以清除还是不彻底的
+- 此时需要请求GitHub官方帮助，[官方support](https://support.github.com/contact?tags=docs-generic)中输入`remove cached views`通过弹出的机器人交互，输入要删除的资源链接，然后它会创建一个Ticket去删除，具体执行可能需要12小时到2天，之后这个资源就彻底消失了
 
