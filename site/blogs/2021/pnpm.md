@@ -300,3 +300,139 @@ packages:
 [Monorepo 的这些坑，我们帮你踩过了！](https://juejin.cn/post/6972139870231724045)
 
 [关于现代包管理器的深度思考——为什么现在我更推荐 pnpm 而不是 npm/yarn?](https://juejin.cn/post/6932046455733485575)
+
+
+
+## 加餐
+
+### hoist行为
+
+- 默认情况下，我们的业务代码是不能访问非直接依赖的vendor包的，因为那些包都在`node_modules/.pnpm/node_modules/xx` 里面，正常的寻址规则是找不到的
+- vendor包和vendor包之间，其实是可以无视这个hoist行为的，即A包依赖B包，但是A的dependency里面并没有B，如果C包依赖了B包，那么A是可以直接访问因为C而引入的B包的
+
+```
+; All packages are hoisted to node_modules/.pnpm/node_modules
+hoist-pattern[]=*
+
+; All types are hoisted to the root in order to make TypeScript happy
+public-hoist-pattern[]=*types*
+
+; All ESLint-related packages are hoisted to the root as well
+public-hoist-pattern[]=*eslint*
+```
+
+- 默认情况下，所有的三方包都会被hoist到`./pnpm/node_modules`
+- 所有的type定义包都会被提升到root去，这是为了不出现ts编译错误
+- 同时放了一些后门，比如eslint相关的包，即使app不直接依赖也会被提升到顶层
+
+
+
+### 依赖修复方案
+
+**overrides**
+
+假设A包依赖B@1.2.0， 这个版本的B是有bug的，但是你又不想升级A（某些特性不需要），或者A包根本就没有处理这个问题
+
+此时，可以通过overrides来强制指定B包的版本，那么所有的B包都会根据配置的来
+
+```json
+{
+  "pnpm": {
+    "overrides": {
+      "B": "1.0.0",
+    }
+  }
+}
+
+// 也可以更细粒度的控制 只有A依赖的B要被覆盖
+{
+  "pnpm": {
+    "overrides": {
+      "A@1>B": "1.0.0",
+    }
+  }
+}
+```
+
+还有种情况，上面讲所有的type定义都会提升到顶层，如果项目里既有@type/react@16 又有@type/react@18， 此时编译器就会错乱发现同个对象有两种定义，此时也可以用overrides去统一type的版本
+
+```json
+{
+  "pnpm": {
+    "overrides": {
+      "@type/react": "18.0.0",
+    }
+  }
+}
+```
+
+ **packageExtensions**
+
+强行指定具体某个包的依赖
+
+```json
+{
+  "pnpm": {
+    "packageExtensions": {
+      "webpack-cli": {
+        "peerDependencies": {
+          "ts-node": "*"
+        }
+      },
+    }
+  }
+}
+```
+
+ **.pnpmfile.cjs**
+
+通过代码来指定版本，用来修复上面两种情况无法精确控制的场景
+
+```javascript
+function readPackage(pkg, context) {
+  if (pkg.name === 'A' && pkg.version.startsWith('1.')) {
+    pkg.dependencies = {
+      ...pkg.dependencies,
+      B: '15.0.0'
+    }
+  }
+  if (pkg.name === 'webpack-cli') {
+    pkg.peerDependencies = {
+      ..pkg.peerDependencies,
+      "ts-node": "*"
+    }
+  }
+  
+  return pkg
+}
+
+module.exports = {
+  hooks: {
+    readPackage
+  }
+}
+```
+
+ **npm alias**
+
+这个就比较有用了，如果某个包packageA的版本有bug，而且也没被维护者处理，传统的做法是自己fork一个仓库，用自己的名字发一个包来替代原有的包，同时还要配置webpack的alias和tsconfig的path
+
+```json
+{
+  "dependencies": {
+     "@kuimo/packageA": "^1.0.1"
+  }
+}
+```
+
+可以使用npm alias直接指向自己的包
+
+
+```json
+{
+  "dependencies": {
+     "packageA": "npm:@kuimo/packageA@1.0.1"
+  }
+}
+```
+
