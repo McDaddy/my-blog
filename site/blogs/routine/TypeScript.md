@@ -483,7 +483,7 @@ bArr = aArr; // error
 let aFunc: (x: A) => void;
 let bFunc: (x: B) => void;
 
-aFunc = bFunc; // error  假设bFunc中用到了age, 然后可以正确赋值给aFunc, 此时调用时传入{ name: '1' },是不会报错的，但实际执行的时候就会报错，所以是不安全的
+aFunc = bFunc; // error  假设bFunc中用到了age, 然后可以正确赋值给aFunc, 此时调用时只传入{ name: '1' }不传age,是不会报错的，但实际执行的时候就会报错，所以是不安全的
 bFunc = aFunc; // OK 相反因为b是更具体的，虽然aFunc不会用到age这个参数，但是如果入参多传一个age也不会对结果产生影响，所以是安全的
 
 // 双向逆变 事实上我们实际开发中遇到的都是双向协变，因为这是ts的默认策略，典型的就是Event的实现
@@ -525,7 +525,7 @@ interface T1 {
   func(arg: string): number;
 }
 // regular property with function type
-// 这是函数
+// 这是函数属性
 interface T2 {
   func: (arg: string) => number;
 }
@@ -556,7 +556,7 @@ const t2: T2 = {
 };
 ```
 
-所以为了避免双向逆变，要把方法都定义成函数
+所以为了避免双向逆变，要把方法都定义成函数属性
 
 
 
@@ -852,5 +852,25 @@ const foo = <T extends unknown>(x: T) => x;
     }
   ]
 }
+```
+
+## satisfies
+
+以前在这种情况，一个属性是组合类型时，即使明确知道它的类型还是不能直接操作它的方法的
+
+```typescript
+type RGB = readonly [red: number, green: number, blue: number];
+type Color = { value: RGB | string };
+
+const myColor: Color = { value 'red' };
+
+myColor.value.toUpperCase();  // error
+```
+
+现在只要加上satisfies，那么下面类型就能直接判断出它是具体组合类型中的哪一个
+
+```typescript
+const myColor = { value: 'red' } satisfies Color; 
+myColor.value.toUpperCase();  // works
 ```
 
