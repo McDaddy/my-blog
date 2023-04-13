@@ -363,6 +363,11 @@ function reconcileChildren(current, workInProgress, nextChildren) {
 
 ### completeUnitOfWork
 
+会走到这里有两种情况
+
+- 虚拟DOM的叶子节点，它没有children了
+- 节点的所有子节点都已经complete了，就会开始完成它本身
+
 1. 维护局部变量`completedWork`
 2. `completeWork`：创建真实节点
 3. 查看当前completedWork是否有兄弟节点sibling
@@ -392,6 +397,78 @@ function completeUnitOfWork(unitOfWork) {
 ```
 
 
+
+### completeWork
+
+目的： 给每个节点创建/更新真实DOM节点，并且append或者insert到自己的父节点的真实DOM上，同时把各种属性都设置上去
+
+几个函数
+
+- bubbleProperties： 传入当前fiber节点，通过收集自己的child以及child的所有sibling，归纳出自身节点的`subtreeFlags`属性，代表自己子的副作用。不论什么类型的Fiber节点都需要调用
+- createInstance： 创建元素类型（h1/div）的真实DOM节点
+- appendAllChildren：传入当前的真实DOM节点和Fiber，把当前Fiber的child以及child的所有sibling的`stateNode`添加到真实DOM上去。 中间有细节**注意**：child或者sibling可以是非原生元素或纯文本，即函数组件或类组件，此时就需要一直往下找，直到找到原生节点为止才算有效的child
+- finalizeInitialChildren：就是把所有放在虚拟DOM上的pendingProps，赋值给这个真实DOM，比如style, className等，如果碰到children属性，同时还是字符串或者数字的话，那么就会用`node.textContent = text`来设置纯文本内容
+
+```javascript
+export function completeWork(current, workInProgress) {
+  const newProps = workInProgress.pendingProps;
+  switch (workInProgress.tag) {
+    case HostRoot:
+      bubbleProperties(workInProgress);
+      break;
+    //如果完成的是原生节点的话
+    case HostComponent:
+      ///现在只是在处理创建或者说挂载新节点的逻辑，后面此处分进行区分是初次挂载还是更新
+      //创建真实的DOM节点
+      const { type } = workInProgress;
+      const instance = createInstance(type, newProps, workInProgress);
+      //把自己所有的儿子都添加到自己的身上
+      appendAllChildren(instance, workInProgress);
+      workInProgress.stateNode = instance;
+      finalizeInitialChildren(instance, type, newProps);
+      bubbleProperties(workInProgress);
+      break;
+    case HostText:
+      //如果完成的fiber是文本节点，那就创建真实的文本节点
+      const newText = newProps;
+      //创建真实的DOM节点并传入stateNode
+      workInProgress.stateNode = createTextInstance(newText);
+      //向上冒泡属性
+      bubbleProperties(workInProgress);
+      break;
+  }
+}
+```
+
+
+
+### commitWork
+
+整个渲染过程主要分为两部分：
+
+1. 协调，即上面的`workLoop`工作循环，简单讲就是把老的Fiber更新成新的Fiber，而新的Fiber上都已经准备好了要更新的真实DOM节点。因为有Fiber链表结构的存在，整个过程是可以打断的
+2. commit，把上一步总结好的Fiber一次性更新到UI上，这个步骤不可打断。通过之前的分析得到，当前节点和自己的子树中有没有需要更新的操作(flags/subtreeFlags)
+
+```javascript
+function commitRoot(root) {
+  const { finishedWork } = root;
+  //判断子树有没有副作用
+  const subtreeHasEffects =
+    (finishedWork.subtreeFlags & MutationMask) !== NoFlags;
+  const rootHasEffect = (finishedWork.flags & MutationMask) !== NoFlags;
+  //如果自己的副作用或者子节点有副作用就进行提交DOM操作
+  if (subtreeHasEffects || rootHasEffect) {
+    commitMutationEffectsOnFiber(finishedWork, root);
+  }
+  //等DOM变更后，就可以把让root的current指向新的fiber树
+  root.current = finishedWork;
+}
+```
+
+`commitMutationEffectsOnFiber`: 作用是按深度遍历的顺序，处理每个节点需要的DOM操作（插入/删除/更新）
+
+1. 看当前节点有没有subtreeFlags，有的话开始处理child，child处理完处理剩下可能得sibling。如果没有的话就直接跳过了，说明这个节点的子都不需要更新
+2. 当自己的child都处理完之后，开始处理自身，即根据自身flags把自身的DOM节点在**最近**的原生元素节点下插入更新删除（其中插入不一定是append，可能需要查找其最近的sibling来插入到它的前面）
 
 
 

@@ -188,3 +188,8 @@ npm rebuild node-sass
 
 [前端工程化 - 剖析npm的包管理机制](https://juejin.im/post/5df789066fb9a0161f30580c)
 
+
+
+## pnpm查看项目中某个包安装了的版本情况
+
+`pnpm ls --depth 2` 根据情况调整深度， 默认就一层
