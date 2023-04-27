@@ -181,6 +181,7 @@ export function FiberNode(tag, pendingProps, key) {
 
   //每个fiber还会有自己的状态，每一种fiber 状态存的类型是不一样的
   //类组件对应的fiber 存的就是类的实例的状态,HostRoot存的就是要渲染的元素
+  // 如果是函数组件，就是hook链表的头
   this.memoizedState = null;
   //每个fiber身上可能还有更新队列
   this.updateQueue = null;
@@ -294,10 +295,13 @@ beginWork的**最终返回**是当前节点经过处理后得到的可能得儿�
 - 如果是**HostComponent** 即原生元素
   - 查看pendingProps中的children是不是纯文本，如果是的话就没有再下层的儿子了
   - 有儿子的话，做DOM-DIFF
+- 如果是**IndeterminateComponent**即函数组件或类组件，通过执行函数，就可以得到它的children，然后做子节点的协调
 
 ```javascript
 export function beginWork(current, workInProgress) {
   switch (workInProgress.tag) {
+    case IndeterminateComponent:
+      return mountIndeterminateComponent(current, workInProgress, workInProgress.type);  
     case HostRoot:
       return updateHostRoot(current, workInProgress);
     case HostComponent:
@@ -405,7 +409,7 @@ function completeUnitOfWork(unitOfWork) {
 几个函数
 
 - bubbleProperties： 传入当前fiber节点，通过收集自己的child以及child的所有sibling，归纳出自身节点的`subtreeFlags`属性，代表自己子的副作用。不论什么类型的Fiber节点都需要调用
-- createInstance： 创建元素类型（h1/div）的真实DOM节点
+- createInstance： 创建元素类型（h1/div）的真实DOM节点，同时把当前Fiber和props作为两个属性**缓存**在DOM节点上，*这样做就可以随时从Fiber上找到DOM(stateNode)，也可以从DOM上立刻找到Fiber（domNode[缓存key]）*
 - appendAllChildren：传入当前的真实DOM节点和Fiber，把当前Fiber的child以及child的所有sibling的`stateNode`添加到真实DOM上去。 中间有细节**注意**：child或者sibling可以是非原生元素或纯文本，即函数组件或类组件，此时就需要一直往下找，直到找到原生节点为止才算有效的child
 - finalizeInitialChildren：就是把所有放在虚拟DOM上的pendingProps，赋值给这个真实DOM，比如style, className等，如果碰到children属性，同时还是字符串或者数字的话，那么就会用`node.textContent = text`来设置纯文本内容
 
@@ -541,6 +545,337 @@ function reconcileChildrenArray(returnFiber, currentFirstFiber, newChildren) {
     previousNewFiber = newFiber;
   }
   return resultingFirstChild;
+}
+```
+
+
+
+## 合成事件
+
+所谓合成事件肯定是要相对于原生事件，那么它做了些什么呢？
+
+1. 把所有事件都由root进行代理，相当于所有的event都是注册在顶部元素的
+2. 整个`addEventListener`行为只会发生一次（初次挂载时），接下来所有的事件注册都不需要额外绑定事件，减少内存开销
+3. 对浏览器的兼容，比如`stopPropagation`、`preventDefault`在IE中的语法是不同的，React帮助抹平了这个差异
+
+这个过程主要分以下几步
+
+### 初次挂载时绑定所有事件
+
+React在初次挂载时会收集所有可能的事件类型，最终集合到一个Set中，以click为例，这个过程会在div#root上注册两个事件绑定（此时注意即便是我们的代码里没有任何click相关的事件，这个过程也必须的），分别是
+
+- click事件的捕获
+- click事件的冒泡
+
+绑定上去的事件回调，是一个创建出来的**listenerWrap**，这个wrap函数通过bind绑定了listener回调需要的三个参数
+
+- EventName: 事件名，如`click`
+- eventSystemFlags：表示冒泡或捕获的标志
+- targetContainer：即div#root
+
+```javascript
+// react-dom/src/client/ReactDOMRoot.js
+export function createRoot(container) {
+  const root = createContainer(container);
+  listenToAllSupportedEvents(container); // 初始化时开始监听事件
+  return new ReactDOMRoot(root);
+}
+
+// react-dom-bindings/src/events/DOMPluginEventSystem.js
+export function listenToAllSupportedEvents(rootContainerElement) {
+    ...
+    // 遍历所有的原生的事件比如click,进行监听
+    allNativeEvents.forEach((domEventName) => {
+      listenToNativeEvent(domEventName, true, rootContainerElement); // 监听捕获
+      listenToNativeEvent(domEventName, false, rootContainerElement); // 监听冒泡
+    });
+}
+
+function addTrappedEventListener(
+  targetContainer,
+  domEventName,
+  eventSystemFlags,
+  isCapturePhaseListener
+) {
+  // 创建一个listenerWrap，随后直接做addEventListener绑定
+  const listener = createEventListenerWrapperWithPriority(
+    targetContainer,
+    domEventName,
+    eventSystemFlags
+  );
+  if (isCapturePhaseListener) {
+    addEventCaptureListener(targetContainer, domEventName, listener); // addEventListener
+  } else {
+    addEventBubbleListener(targetContainer, domEventName, listener);
+  }
+}
+```
+
+经过初始化之后，div#root上就有关于click的两个事件监听了。
+
+### 事件触发
+
+当在页面触发实际点击后，就会触发上面注册的**listenerWrap**，除了上面已经绑定的三个参数，最后一个参数是事件的原生事件对象**nativeEvent**
+
+通过这个原生事件对象，可以拿到那个真实触发事件的DOM元素，即实际点击的button/div/span，然后通过`internalInstanceKey`在DOM上得到绑定在其上的Fiber对象。**为什么要取Fiber节点**？因为我们目前能获取到的只是某个DOM元素被点击了，不论这个元素是否有绑定onClick事件，我们都要考虑这个元素的父元素一直到root是否还有绑定onClick事件，这里就可以利用`fiber.return`一路向上遍历。
+
+这个过程可以简单概括为（这个过程会执行两遍，第一次是捕获，第二次是冒泡，这里以捕获为例）：
+
+1. dispatchEvent：拿到原生事件对象、目标对应的Fiber
+2. extractEvents：
+   1. 通过事件类型，创建一个新的合成事件对象，比如click事件就是`SyntheticMouseEvent`，在创建时nativeEvent是它的一个属性，同时会按需把一些nativeEvent的属性复制到合成事件上，比如click事件的`clientX`和`clientY`
+   2. 收集listener，从当前target DOM开始利用它对应的Fiber.return一路向上遍历，找到一路上有包含`onClickCapture`的节点，把这些回调都放到一个listener数组中去，此时**注意**这个数组的顺序是先是子的事件回调，然后再是一路父级的回调
+3. processDispatchQueue：根据上面的listeners逐个执行
+   1. 如果是捕获阶段：listeners数组从后往前执行，即从父到子的顺序
+   2. 如果是冒泡阶段：listeners数组从后往前执行，即从子到父的顺序
+4. 中间会覆盖原生的`stopPropagation`和`preventDefault`，模拟原生那样，如果调用就不会执行接下来的回调
+
+```javascript
+// 这个就是上面listenerWrap的实际内容
+export function dispatchEvent(
+  domEventName,
+  eventSystemFlags,
+  targetContainer,
+  nativeEvent
+) {
+  //获取事件源，它是一个真实DOM
+  const nativeEventTarget = getEventTarget(nativeEvent);
+  const targetInst = getClosestInstanceFromNode(nativeEventTarget); // domNode[internalInstanceKey]
+  dispatchEventForPluginEventSystem(
+    domEventName, //click
+    eventSystemFlags, //0 4
+    nativeEvent, //原生事件
+    targetInst, //此真实DOM对应的fiber
+    targetContainer //目标容器
+  );
+}
+
+
+/**
+ * 把要执行回调函数添加到dispatchQueue中
+ * @param {*} dispatchQueue 派发队列，里面放置我们的监听函数
+ * @param {*} domEventName DOM事件名 click
+ * @param {*} targetInst 目标fiber
+ * @param {*} nativeEvent 原生事件
+ * @param {*} nativeEventTarget 原生事件源
+ * @param {*} eventSystemFlags  事件系统标题 0 表示冒泡 4表示捕获
+ * @param {*} targetContainer  目标容器 div#root
+ */
+function extractEvents(
+  dispatchQueue,
+  domEventName,
+  targetInst,
+  nativeEvent,
+  nativeEventTarget, //click => onClick
+  eventSystemFlags,
+  targetContainer
+) {
+  const reactName = topLevelEventsToReactNames.get(domEventName); //click => onClick
+  let SyntheticEventCtor; //合成事件的构建函数
+  switch (domEventName) {
+    case "click":
+      SyntheticEventCtor = SyntheticMouseEvent;
+      break;
+    default:
+      break;
+  }
+  const isCapturePhase = (eventSystemFlags & IS_CAPTURE_PHASE) !== 0; //是否是捕获阶段
+  const listeners = accumulateSinglePhaseListeners( // 收集链路上所有事件回调
+    targetInst,
+    reactName,
+    nativeEvent.type,
+    isCapturePhase
+  );
+  //如果有要执行的监听函数的话[onClickCapture,onClickCapture]=[ChildCapture,ParentCapture]
+  if (listeners.length > 0) {
+    const event = new SyntheticEventCtor(
+      reactName,
+      domEventName,
+      null,
+      nativeEvent,
+      nativeEventTarget
+    );
+    dispatchQueue.push({
+      event, //合成事件实例
+      listeners, //监听函数数组
+    });
+  }
+}
+```
+
+## Hooks
+
+### useReducer
+
+React其实维护了两套useReducer的逻辑，分别对应mount和update
+
+当函数组件进入**beginWork**逻辑时，会调用**renderWithHooks**根据Hooks进行渲染
+
+```javascript
+// 进入beginWork
+// 几个维护在全局的变量
+const { ReactCurrentDispatcher } = ReactSharedInternals; // 整个React全局维护一个ReactCurrentDispatcher
+let currentlyRenderingFiber = null;
+let workInProgressHook = null; // 用来指代Hooks链表中的最后一位，用于在mount阶段组建链表
+let currentHook = null;
+
+const HooksDispatcherOnMount = {
+  useReducer: mountReducer,
+};
+const HooksDispatcherOnUpdate = {
+  useReducer: updateReducer,
+};
+
+/**
+ * 渲染函数组件
+ * @param {*} current 老fiber
+ * @param {*} workInProgress 新fiber
+ * @param {*} Component 组件定义
+ * @param {*} props 组件属性
+ * @returns 虚拟DOM或者说React元素
+ */
+function renderWithHooks(current, workInProgress, Component, props) {
+  if (挂载阶段) {
+    ReactCurrentDispatcher = HooksDispatcherOnMount
+  } else {
+    ReactCurrentDispatcher = HooksDispatcherOnUpdate
+  }
+  const children = Component(props); // 执行函数得到children
+  return children;
+}
+```
+
+比如我把组件写成这样
+
+```javascript
+function FunctionComponent() {
+  const [number, setNumber] = React.useReducer(counter, 0);
+  return (
+    <button
+      onClick={() => {
+        setNumber({ type: "add", payload: 1 });
+        setNumber({ type: "add", payload: 2 });
+        setNumber({ type: "add", payload: 3 });
+      }}
+    >
+      {number}
+    </button>
+  );
+}
+```
+
+当在执行`const children = Component(props)`这句话时，里面就会调用到`React.useReducer`，而此时这个useReducer就是在此之前去赋值的，每次调用一个useXXX都会生成一个新的hook对象，它的数据结构是这样
+
+```javascript
+const hook = {
+  memoizedState: null, 
+  queue: null, 
+  next: null, 
+};
+```
+
+- memoizedState：hook的状态 上面例子里初始值就是0
+- queue：存放**仅针对**本hook的更新队列，它的值指向所有更新(update)中的最后一个，指向最后一个的好处是，可以非常方便得得到整个列表的头尾元素
+- next：指向下一个hook,一个函数里可以会有多个hook,它们会组成一个单向链表
+
+#### mountReducer
+
+即useReducer执行时的函数体。主要工作是新建一个hook同时把它添加到Hooks链表中，最后返回两个值，一个是hook的初始值，另一个是绑定了当前fiber和更新队列的dispatch方法。**注意**这里*reducer*参数并不会被用到，只需要用到初始值
+
+```javascript
+function mountReducer(reducer, initialArg) {
+  const hook = 创建一个新的空hook并返回，同时把这个hook放在hooks链表的尾部;
+  hook.memoizedState = initialArg; // 给新的hook添加初始值
+  hook.queue = {
+    pending: null,
+  }; // 给新的hook添加一个空的更新队列
+  return [hook.memoizedState, dispatchReducerAction];
+}
+```
+
+#### dispatchReducerAction
+
+即触发action的函数。目标是每一次触发都新建一个update对象，然后把它**入队**到当前全局的queue里面去
+
+其中fiber和queue是在mount时就绑定的，运行时只会传入action
+
+全局维护一个queue数组和一个queueIndex
+
+如上面的例子，连续执行三次setNumber，即调用了三次dispatchReducerAction。会按照三个一组的形式存储
+
+执行结束的结果就是
+
+`concurrentQueue = [fiber1,queue1,update1,fiber2,queue2,update2,fiber3,queue3,update3]`
+
+其中queue是对当个hook来说是共享的，即这里的queue1,queue2,queue3是**同一个对象**，假设后面还触发了一个useState的setState，那么queue4就是不同的队列了
+
+concurrentQueue的使命就是在一个渲染周期里收集所有的更新动作
+
+```javascript
+const concurrentQueue = [];
+let concurrentQueuesIndex = 0;
+
+/**
+ * 执行派发动作的方法，它要更新状态，并且让界面重新更新
+ * @param {*} fiber function对应的fiber
+ * @param {*} queue hook对应的更新队列
+ * @param {*} action 派发的动作
+ */
+function dispatchReducerAction(fiber, queue, action) {
+  // 更新对象
+  const update = {
+    action, //{ type: 'add', payload: 1 } 派发的动作
+    next: null, //指向下一个更新对象
+  };
+  //把当前的最新的更添的添加更新队列中
+  enqueueConcurrentHookUpdate(fiber, queue, update);
+  通知React从root开始更新
+}
+
+function enqueueConcurrentHookUpdate(fiber, queue, update) {
+  concurrentQueue[concurrentQueuesIndex++] = fiber; // 函数组件对应的fiber
+  concurrentQueue[concurrentQueuesIndex++] = queue; // 要更新的hook对应的更新队列
+  concurrentQueue[concurrentQueuesIndex++] = update; // 更新对象
+}
+```
+
+虽然执行了三次，但是最后一步通知React从root开始更新并不会迫使React更新三次，而是保证在单位时间(requestIdleCall)中只会执行一次
+
+#### updateReducer
+
+即在非挂载阶段执行的useReducer的函数体。
+
+经过上面的dispatchReducerAction操作，最后会**通知React从root开始更新**。此时再次执行`React.useReducer(counter, 0)`时（此时还是beginWork阶段），就是需要把之前触发的action累计计算出新的state来渲染
+
+在beginWork阶段前会**先做一步**，把刚才存储的**concurrentQueue**拿出来组建更新队列，这步会把concurrentQueue按三位一组取出，
+
+最终结果就是把之前的空queue(`{ pending: null })`变成了`{ pending: update3 -> update1 -> update2 -> ... }`
+
+```javascript
+function updateReducer(reducer) {
+  //获取新的hook
+  const hook = 从老fiber的memoizedState上得到的hooks链表上取出对应位置的hook，相当于做个拷贝
+  //获取新的hook的更新队列
+  const queue = hook.queue;
+  //获取老的hook
+  const current = 同位置的老hook;
+  //获取将要生效的更新队列
+  const pendingQueue = queue.pending;
+  //初始化一个新的状态，取值为老的状态
+  let newState = current.memoizedState;
+  if (pendingQueue !== null) { // 代表dispatchReducerAction被触发过，更新队列有内容
+    queue.pending = null;
+    const firstUpdate = pendingQueue.next; // 从第一个更新开始
+    let update = firstUpdate;
+    // 遍历整个更新队列，把State做一个reducer汇总
+    do {
+      const action = update.action;
+      newState = reducer(newState, action);
+      update = update.next;
+    } while (update !== null && update !== firstUpdate);
+  }
+  hook.memoizedState = newState; // 把计算出来的新state返回给函数组件
+  return [hook.memoizedState, queue.dispatch];
 }
 ```
 
