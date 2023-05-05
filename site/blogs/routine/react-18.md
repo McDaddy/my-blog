@@ -11,7 +11,7 @@ const sourceCode = `
   hello<span style={{ color: 'red' }}>world</span>
 </h1>
 `;
-
+ 
 process.env.NODE_ENV = 'development';
 const result = babel.transform(sourceCode, {
   plugins: [
