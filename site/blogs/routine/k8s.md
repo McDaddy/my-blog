@@ -319,7 +319,7 @@ $ kubectl get services                          # 列出所有 namespace 中的�
 $ kubectl get rs                          # 列出replicaSet
 $ kubectl get pods --all-namespaces             # 列出所有 namespace 中的所有 pod
 $ kubectl get pods -o wide                      # 列出所有 pod 并显示详细信息
-$ kubectl get deployments my-dep                 # 列出指定 deployment
+$ kubectl get deploy my-dep                 # 列出指定 deployment
 $ kubectl get pods --include-uninitialized      # 列出该 namespace 中的所有 pod 包括未初始化的
 $ kubectl get pods -w                           # watch 相当于持续监听 
 ```
@@ -538,7 +538,9 @@ kubectl get po --show-labels
 
 ### Deployment
 
-对应于**无状态**应用，一个deployment会对应一个**ReplicaSet**（副本集），一个ReplicaSet里面有N个Pod
+对应于**无状态**应用，一个deployment会对应1-N个**ReplicaSet**（副本集），一个ReplicaSet里面有N个Pod
+
+Deployment 为 Pod 和 Replica Set 提供声明式更新。Pod的声名内容就对应其中的`template`属性
 
 ![image-20230505162622104](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230505162622104.png)
 
@@ -556,6 +558,416 @@ kubectl create -f xxx.yaml --record
 在replica为1的情况下，创建一个deployment就会对应产生一个deploy一个pod一个replicaSet
 
 ![image-20230505162903505](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230505162903505.png)
+
+从上图可以看出deployment/replicaSet/pod的命名是有**层级关系**的
+
+> deploy nginx-deploy -> rs nginx-deploy-78d8bf4fd7 -> Pod nginx-deploy-78d8bf4fd7-md5p2 
+
+但是实际情况三者一般不会1:1:1，而是 1个deploy对应N个replicaSet，因为一旦deploy出现更新，那么就会生成一个新的rs，新的rs完全ready后老的rs也不会销毁。一个rs会对应N个Pod，这个N取决于replica的配置数量
+
+**典型的deployment yaml**
+
+```yaml
+apiVersion: apps/v1 # deployment api 版本
+kind: Deployment # 资源类型为 deployment
+metadata: # 元信息
+  labels: # 标签
+    app: nginx-deploy # 具体的 key: value 配置形式
+  name: nginx-deploy # deployment 的名字
+  namespace: default # 所在的命名空间
+spec:
+  replicas: 1 # 期望副本数
+  revisionHistoryLimit: 10 # 进行滚动更新后，保留的历史版本数
+  selector: # 选择器，用于找到匹配的 RS
+    matchLabels: # 按照标签匹配
+      app: nginx-deploy # 匹配的标签key/value
+  strategy: # 更新策略
+    rollingUpdate: # 滚动更新配置
+      maxSurge: 25% # 进行滚动更新时，更新的个数最多可以超过期望副本数的个数/比例
+      maxUnavailable: 25% # 进行滚动更新时，最大不可用比例更新比例，表示在所有副本数中，最多可以有多少个不更新成功
+    type: RollingUpdate # 更新类型，采用滚动更新
+  template: # pod 模板
+    metadata: # pod 的元信息
+      labels: # pod 的标签
+        app: nginx-deploy
+    spec: # pod 期望信息
+      containers: # pod 的容器
+      - image: nginx:1.7.9 # 镜像
+        imagePullPolicy: IfNotPresent # 拉取策略
+        name: nginx # 容器名称
+      restartPolicy: Always # 重启策略
+      terminationGracePeriodSeconds: 30 # 删除操作最多宽限多长时间
+```
+
+#### 滚动更新
+
+主要聚焦在更新策略
+
+```yaml
+replicas: 1 # 期望副本数
+revisionHistoryLimit: 10 # 进行滚动更新后，保留的历史版本数
+selector: # 选择器，用于找到匹配的 RS
+  matchLabels: # 按照标签匹配
+    app: nginx-deploy # 匹配的标签key/value
+strategy: # 更新策略
+  rollingUpdate: # 滚动更新配置
+    maxSurge: 25% # 进行滚动更新时，更新的个数最多可以超过期望副本数的个数/比例
+    maxUnavailable: 25% # 进行滚动更新时，最大不可用比例更新比例，表示在所有副本数中，最多可以有多少个不更新成功
+  type: RollingUpdate # 更新类型，采用滚动更新
+```
+
+只有修改了 deployment 配置文件中的 template 中的属性后，才会触发更新操作
+
+```shell
+# 修改 nginx 版本号
+kubectl set image deployment/nginx-deploy nginx=nginx:1.9.1
+
+# 或者通过 
+kubectl edit deployment/nginx-deploy 
+
+# 查看滚动更新的过程
+kubectl rollout status deploy <deployment_name>
+# 也可以通过描述查看事件
+kubectl describe deploy <deployment_name>
+```
+
+当触发了滚动更新后，k8s会新建一个rs，然后在上面启动新的Pod，当新的Pod启动完毕后，老的rs就会被撤掉，从下图就能看出，老的rs在更新完成后current/ready/desired都会是0，而新的rs的这些数量就是目标的值
+
+![image-20230505181552479](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230505181552479.png)
+
+
+
+**多个滚动更新并行**
+
+假设当前有 5 个 nginx:1.7.9 版本，你想将版本更新为 1.9.1，当更新成功第三个以后，你马上又将期望更新的版本改为 1.9.2，那么此时会立马删除之前的三个，并且立马开启更新 1.9.2 的任务
+
+
+
+#### 回滚
+
+可以通过命令来得到deploy的历史版本记录
+
+```shell
+kubectl rollout history deployment/nginx-deploy
+```
+
+![image-20230505182502137](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230505182502137.png)
+
+通过命令得到具体revision的详情，假设下面就能看到版本1中的image版本是1.7.9 （上一步改成了1.9.1）
+
+```shell
+ kubectl rollout history deployment/nginx-deploy --revision=1
+```
+
+![image-20230505182608610](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230505182608610.png)
+
+通过命令进行回滚操作
+
+```shell
+kubectl rollout undo deployment/nginx-deploy # 可以回退到上一个版本
+
+# 也可以回退到指定的 revision
+kubectl rollout undo deployment/nginx-deploy --to-revision=1
+```
+
+可以通过设置 .spec.revisonHistoryLimit 来指定 deployment 保留多少 revison，如果设置为 0，则不允许 deployment 回退了。
+
+#### 扩容缩容
+
+扩容与缩容只是直接创建副本数，没有更新 pod template 因此不会创建新的 rs
+
+可以通过 kube scale 命令可以进行自动扩容/缩容，以及通过 kube edit 编辑 replcas 也可以实现扩容/缩容
+
+#### 暂停与恢复
+
+由于每次对 pod template 中的信息发生修改后，都会触发更新 deployment 操作，那么此时如果频繁修改信息，就会产生多次更新，而实际上只需要执行最后一次更新即可，当出现此类情况时我们就可以暂停 deployment 的 rollout
+
+可以通过下面命令，就可以实现暂停，直到你下次恢复后才会继续进行滚动更新。接下来的任何edit操作都不会触发重新的部署
+
+```shell
+kubectl rollout pause deployment <name>
+```
+
+通过命令，就可以实现恢复rollout，此时就会有新的rs产生
+
+```shell
+kubectl rollout resume deploy <name>
+```
+
+
+
+### StatefulSet
+
+StatefulSet对应的是**有状态**的服务，它下面没有rs的概念
+
+![image-20230506141122134](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230506141122134.png)
+
+**典型配置文件**
+
+```yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  serviceName: "nginx"
+  replicas: 2
+  selector:
+   matchLabels:
+     app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.7.9
+        ports:
+        - containerPort: 80
+          name: web
+```
+
+可以通过`kubectl create -f` 命令来进行创建
+
+结果会发现产生了一个statefulSet，同时产生了两个关联的Pod，注意这两个Pod的名称并不是像deploy那样的结构(deploy名-rs码-pod码)，这里的结构是`sts名-从0开始的整数`
+
+![image-20230506143942411](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230506143942411.png)
+
+
+
+可以通过以下命令进入一个busybox的容器（因为宿主机是无法直接访问集群内的网络的，所以要起一个容器来访问，busybox有nslookup的功能）
+
+```bash
+kubectl run -i --tty --image busybox:1.28.4 dns-test --restart=Never --rm /bin/sh
+
+# 进入容器后执行命令
+nslookup web-0.nginx
+```
+
+内部可以访问的服务名就是`pod名.svc名`
+
+![image-20230506144726331](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230506144726331.png)
+
+
+
+#### 扩容缩容
+
+```shell
+# 扩容
+$ kubectl scale statefulset web --replicas=5
+
+# 缩容
+$ kubectl patch statefulset web -p '{"spec":{"replicas":3}}'
+```
+
+
+
+#### 镜像更新
+
+可以通过命令`kubectl edit sts <sts名称>`来编辑配置，打开之后发现在运行时k8s会帮我们加上很多我们没有在create时添加的属性，这些都是本身的默认值，同时还会有一个`status`属性，这是运行时的状态属性
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230506160940843.png" alt="image-20230506160940843" style="zoom:67%;" />
+
+#### 灰度发布
+
+**更新策略** 金丝雀更新
+
+**updateStratege**
+
+rollingUpdate：即滚动更新，pod 是有序的，在 StatefulSet 中更新时是基于 pod 的顺序倒序更新的
+
+partion里面的数字就是**只更新***大于等于*这个数字的Pod，而之前的Pod保持不变
+
+例如我们有 5 个 pod，如果当前 partition 设置为 2，那么此时滚动更新时，只会更新那些 序号 >= 2 的 pod
+
+最后的结果可以通过`kubectl describe sts web`来查看，它是从序号最大的开始删除一个创建一个
+
+![image-20230506163508519](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230506163508519.png)
+
+利用该机制，我们可以通过控制 partition 的值，来决定只更新其中一部分 pod，确认没有问题后再主键增大更新的 pod 数量，最终实现全部 pod 更新
+
+**onDelete**
+
+只有在 pod 被删除时会进行更新操作
+
+
+
+### DaemonSet
+
+典型配置文件
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+spec:
+  template:
+    metadata:
+      labels:
+        app: logging
+        id: fluentd
+      name: fluentd
+    spec:
+      containers:
+      - name: fluentd-es
+        image: agilestacks/fluentd-elasticsearch:v1.3.0
+        volumeMounts:
+         - name: containers
+           mountPath: /var/lib/docker/containers
+         - name: varlog
+           mountPath: /varlog
+      volumes:
+         - hostPath:
+             path: /var/lib/docker/containers
+           name: containers
+         - hostPath:
+             path: /var/log
+           name: varlog
+
+
+```
+
+DaemonSet直译理解就是**守护进程**，可以用来部署些监控类的服务
+
+DaemonSet不需要指定replica，**默认会在除了Master之外的所有节点都部署一个Pod**，如果需要指定部署的节点，就需要用到**nodeSelector**
+
+可以通过命令给节点打标，然后在template中配置nodeSelector，这样就只会在指定标签的节点部署，同时如果动态扩容也会自动部署
+
+```bash
+# 先为 Node 打上标签
+kubectl label nodes k8s-node1 type=microsvc
+
+# 然后再 daemonset 配置中设置 nodeSelector
+spec:
+  template:
+    spec:
+      nodeSelector:
+        type: microsvc
+```
+
+滚动更新和StatefulSet一致，但建议使用onDelete策略，这样会比较节约资源
+
+
+
+### HPA 自动扩容/缩容
+
+通过观察 pod 的 cpu、内存使用率或自定义 metrics 指标进行自动的扩容或缩容 pod 的数量。
+
+通常用于 Deployment，不适用于无法扩/缩容的对象，如 DaemonSet
+
+控制管理器每隔30s（可以通过–horizontal-pod-autoscaler-sync-period修改）查询metrics的资源使用情况
+
+首先这个资源必须有配置`resources.limits`，即至少需要多少资源（多少CPU或内存），当实际占用资源超过设定的值才会生效
+
+然后通过命令来开启hpa，min最少扩容到N个，max最多扩容到N
+
+cpu-percent表示阈值百分比，比如设置了`requests.limits.cpu = 100m`，当服务没有负载的时候用的CPU可能是0，当负载上升后，达到20m时，就相当于达到了预设的20%，此时就会开始触发hpa的扩容，反之就是触发缩容
+
+```bash
+kubectl autoscale deploy nginx-deploy --cpu-percent=20 --min=2 --max=5
+
+kubectl get hpa # 查看hpa信息
+```
+
+
+
+### Services
+
+服务发现，主要用来实现集群的横向流量，也就是集群内部间的访问
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230506205908331.png" alt="image-20230506205908331" style="zoom:67%;" />
+
+有了微服务之后，各个微服务之间都可以通过服务名互相访问。这里的一个微服务可能是部署在N个节点上的N个Pod的集合，可以通过一个统一的服务名被访问
+
+#### Endpoints
+
+它和Service是0对1或者1对1的关系，一般情况下创建一个Service的同时会自动创建一个endpoint与Service同名，一个ep下面绑了N个终端地址
+
+![image-20230506210514613](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230506210514613.png)
+
+一般情况下endpoints都是用来指代service的selector对应的pod的终端地址的，但如果一个service它不配置selector，那么可以单独为这个service创建一个ep。然后把这个ep的地址指向一个外部的地址，这样就可以让所有集群内部的应用都通过一个Service来访问到一个外部的资源了
+
+```yaml
+apiVersion: v1
+kind: Endpoints
+metadata:
+  labels:
+    app: svc-external # 与 service 一致
+  name: svc-external # 与 service 一致
+subsets:
+- addresses:
+  - ip: <target ip> # 目标外部 ip 地址
+  ports: # 与 service 一致
+  - name: http # 这个就是svc的port名称
+    port: 80
+    protocol: TCP
+```
+
+
+
+
+
+#### 典型的配置
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+  labels:
+    app: nginx-svc
+spec:
+  ports:
+  - name: http # service 端口配置的名称
+    protocol: TCP # 端口绑定的协议，支持 TCP、UDP、SCTP，默认为 TCP
+    port: 80 # service 自己的端口
+    targetPort: 9527 # 目标 pod 的端口
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector: # 选中当前 service 匹配哪些 pod，对哪些 pod 的东西流量进行代理
+    app: nginx
+  type: NodePort
+```
+
+主要需要配置
+
+selector：只对有这个标签的Pod进行流量代理
+
+ports：出口配置
+
+- name：可以是任意名称，就是给这个出口一个名字
+
+- port：别人访问这个service的端口号
+
+- targetPort: Service要代理的Pod暴露服务的端口号
+
+type：service的类型，有三种
+
+- ClusterIP：默认值，只能在集群内部使用，不能在集群外被发现
+- NodePort：会在所有安装了 kube-proxy 的节点都绑定一个端口，此端口可以代理至对应的 Pod，集群外部可以使用任意节点 ip + NodePort 的端口号访问到集群中对应 Pod 中的服务。当类型设置为 NodePort 后，可以在 ports 配置中增加 nodePort 配置指定端口，需要在下方的端口范围内，如果不指定会随机指定端口
+- ExternalName：代理集群外的服务
+- LoadBalancer： 使用云厂商的负载均衡服务
+
+
 
 
 
