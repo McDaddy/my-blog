@@ -356,6 +356,14 @@ $ kubectl delete pods,services -l name=myLabel --include-uninitialized      # �
 $ kubectl -n my-ns delete po,svc --all                                      # 删除 my-ns namespace 下的所有 pod 和 serivce，包括尚未初始化的
 ```
 
+### logs
+
+```bash
+kubectl logs pod-id
+```
+
+
+
 
 
 ## Pod
@@ -790,7 +798,7 @@ $ kubectl patch statefulset web -p '{"spec":{"replicas":3}}'
 
 **updateStratege**
 
-rollingUpdate：即滚动更新，pod 是有序的，在 StatefulSet 中更新时是基于 pod 的顺序倒序更新的
+**rollingUpdate**：即滚动更新，pod 是有序的，在 StatefulSet 中更新时是基于 pod 的顺序倒序更新的
 
 partion里面的数字就是**只更新***大于等于*这个数字的Pod，而之前的Pod保持不变
 
@@ -969,6 +977,454 @@ type：service的类型，有三种
 
 
 
+### Ingress
+
+Ingress 可以理解为也是一种 LB 的抽象，它的实现也是支持 nginx、haproxy 等负载均衡服务的
+
+**典型配置**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress # 资源类型为 Ingress
+metadata:
+  name: nginx-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules: # ingress 规则配置，可以配置多个
+  - host: k8s.cn # 域名配置，可以使用通配符 *
+    http:
+      paths: # 相当于 nginx 的 location 配置，可以配置多个
+      - pathType: Prefix # 路径类型，按照路径类型进行匹配 ImplementationSpecific 需要指定 IngressClass，具体匹配规则以 IngressClass 中的规则为准。Exact：精确匹配，URL需要与path完全匹配上，且区分大小写的。Prefix：以 / 作为分隔符来进行前缀匹配
+        backend:
+          service: 
+            name: nginx-svc # 代理到哪个 service
+            port: 
+              number: 80 # service 的端口
+        path: /api # 等价于 nginx 中的 location 的路径前缀匹配
+```
+
+
+
+### ConfigMap
+
+一般用于去存储 Pod 中应用所需的一些配置信息，或者环境变量，将配置与Pod分开，避免因为修改配置导致还需要重新构建镜像与容器。
+
+可以用命令创建
+
+```bash
+kubectl create cm <cm-name> --from-file /xxxx/xx  # 通过文件夹或文件内容创建
+kubectl create cm --from-literal=username=root # 通过单行输入创建
+```
+
+使用方法
+
+- 通过`configMapKeyRef`把configmap映射到环境变量
+- 通过存储卷把configMap映射到容器中指定文件目录下
+
+```yaml
+kind: Pod
+spec:
+  containers:
+    - env:
+      - name: PARAM # 映射到环境变量
+        valueFrom:
+          configMapKeyRef:
+            name: xxxx  # cm的名字
+            key: keyName  # 从xxxx中拿到key为keyName的值，然后赋值给PARAM
+      volumeMounts:
+       - name: db-config # 把下面的volume挂载进来
+         mountPath: "/usr/local/mysql/conf" # 映射路径
+         readOnly: true
+  volumes:
+    - name: db-config
+      configMap: test-cm # 和外面定义的configMap名字一致
+        items:
+         - key: "db.properties" # test-cm中key为db.properties的内容
+           path: "db.properties" # 转化成的文件名，会添加到/usr/local/mysql/conf里面去
+```
+
+#### SubPath
+
+使用 ConfigMap 或 Secret 挂载到目录的时候，会将容器中源目录给覆盖掉，此时我们可能只想覆盖目录中的某一个文件，但是这样的操作会覆盖整个文件夹，因此需要使用到 SubPath
+
+配置方式：
+定义 volumes 时需要增加 items 属性，配置 key 和 path，且 path 的值不能从 / 开始
+在容器内的 volumeMounts 中增加 subPath 属性，该值与 volumes 中 items.path 的值相同
+
+```yaml
+containers:
+  ......
+  volumeMounts:
+
+  - mountPath: /etc/nginx/nginx.conf # 挂载到哪里
+    name: config-volume # 使用哪个 configmap 或 secret
+    subPath: etc/nginx/nginx.conf # 与 volumes.[0].items.path 相同
+    volumes:
+volumes: 
+ - configMap:
+    name: nginx-conf # configMap 名字
+    items: # subPath 配置
+     - key: nginx.conf # configMap 中的文件名
+       path: etc/nginx/nginx.conf # subPath 路径 注意没有开头的/
+```
+
+由于 configmap 我们创建通常都是基于文件创建，并不会编写 yaml 配置文件，因此修改时我们也是直接修改配置文件，而 replace 是没有 --from-file 参数的，因此无法实现基于源配置文件的替换，此时我们可以利用下方的命令实现
+
+该命令的重点在于 --dry-run 参数，该参数的意思打印 yaml 文件，但不会将该文件发送给 apiserver，再结合 -oyaml 输出 yaml 文件就可以得到一个配置好但是没有发给 apiserver 的文件，然后再结合 replace 监听控制台输出得到 yaml 数据即可实现替换
+
+```
+kubectl create cm --from-file=nginx.conf --dry-run -oyaml | kubectl replace -f-
+```
+
+
+
+### Volumes
+
+#### HostPath
+
+将节点上的文件或目录挂载到 Pod 上，此时该目录会变成持久化存储目录，即使 Pod 被删除后重启，也可以重新加载到该目录，该目录下的文件不会丢失，这点和Docker基本是一样的
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pd
+spec:
+  containers:
+  - image: nginx
+    name: nginx-volume
+    volumeMounts:
+    - mountPath: /test-pd # 挂载到容器的哪个目录
+      name: test-volume # 挂载哪个 volume
+  volumes:
+  - name: test-volume
+    hostPath:
+      path: /data # 节点中的目录
+      type: Directory # 检查类型，在挂载前对挂载目录做什么检查操作，有多种选项，默认为空字符串，不做任何检查
+```
+
+#### EmptyDir
+
+EmptyDir 主要用于一个 Pod 中**不同的** Container 共享数据使用的，由于只是在 Pod 内部使用，因此与其他 volume 比较大的区别是，当 Pod 如果被删除了，那么 emptyDir 也会被删除。
+
+存储介质可以是任意类型，如 SSD、磁盘或网络存储。可以将 emptyDir.medium 设置为 Memory 让 k8s 使用 tmpfs（内存支持文件系统），速度比较快，但是重启 tmpfs 节点时，数据会被清除，且设置的大小会计入到 Container 的内存限制中。
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pd
+spec:
+  containers:
+  - image: nginx
+    name: nginx-emptydir
+    volumeMounts:
+    - mountPath: /cache
+      name: cache-volume
+  volumes:
+  - name: cache-volume
+    emptyDir: {}
+```
+
+#### NFS
+
+nfs 卷能将 NFS (网络文件系统) 挂载到你的 Pod 中。 不像 emptyDir 那样会在删除 Pod 的同时也会被删除，nfs 卷的内容在删除 Pod 时会被保存，卷只是被卸载。 这意味着 nfs 卷可以被预先填充数据，并且这些数据可以在 Pod 之间共享。
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pd
+spec:
+  containers:
+  - image: nginx
+    name: test-container
+    volumeMounts:
+    - mountPath: /my-nfs-data
+      name: test-volume
+  volumes:
+  - name: test-volume
+    nfs:
+      server: my-nfs-server.example.com # 网络存储服务地址
+      path: /my-nfs-volume # 网络存储路径
+      readOnly: true # 是否只读
+```
+
+nfs它本身是一个服务，是需要服务器去安装的，完成后就可以通过暴露出去的服务来访问nfs的内容了
+
+```bash
+# 安装 nfs
+yum install nfs-utils -y
+
+# 启动 nfs
+systemctl start nfs-server
+
+# 查看 nfs 版本
+cat /proc/fs/nfsd/versions
+
+# 重新加载
+exportfs -f
+systemctl reload nfs-server
+```
+
+#### PV与PVC
+
+持久卷（PersistentVolume，PV） 是集群中的一块存储，可以由管理员事先制备， 或者使用存储类（Storage Class）来动态制备。 持久卷是集群资源，就像节点也是集群资源一样。PV 持久卷和普通的 Volume 一样， 也是使用卷插件来实现的，只是它们拥有独立于任何使用 PV 的 Pod 的生命周期。 此 API 对象中记述了存储的实现细节，无论其背后是 NFS、iSCSI 还是特定于云平台的存储系统。
+
+持久卷申领（PersistentVolumeClaim，PVC） 表达的是用户对存储的**请求**。概念上与 Pod 类似。 Pod 会耗用节点资源，而 PVC **申领**会耗用 PV 资源。Pod 可以请求特定数量的资源（CPU 和内存），同样 PVC 申领也可以请求特定的大小和访问模式 （例如，可以要求 PV 卷能够以 ReadWriteOnce、ReadOnlyMany 或 ReadWriteMany 模式之一来挂载）。
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230517205916313.png" alt="image-20230517205916313" style="zoom:50%;" />
+
+##### 生命周期
+
+###### 构建
+
+静态构建：集群管理员创建若干 PV 卷。这些卷对象带有真实存储的细节信息， 并且对集群用户可用（可见）。PV 卷对象存在于 Kubernetes API 中，可供用户消费（使用）。
+
+动态构建：如果集群中已经有的 PV 无法满足 PVC 的需求，那么集群会根据 PVC 自动构建一个 PV，该操作是通过 StorageClass 实现的。想要实现这个操作，前提是 PVC 必须设置 **StorageClass**，否则会无法动态构建该 PV，可以通过启用 DefaultStorageClass 来实现 PV 的构建。
+
+
+
+###### 绑定 
+
+当用户创建一个 PVC 对象后，主节点会监测新的 PVC 对象，并且寻找与之匹配的 PV 卷，找到 PV 卷后将二者绑定在一起。
+
+如果找不到对应的 PV，则需要看 PVC 是否设置 StorageClass 来决定是否动态创建 PV，若没有配置，PVC 就会一致处于未绑定状态，直到有与之匹配的 PV 后才会申领绑定关系。
+
+
+
+###### 使用
+
+Pod 将 PVC 当作存储卷来使用，集群会通过 PVC 找到绑定的 PV，并为 Pod 挂载该卷。
+
+Pod 一旦使用 PVC 绑定 PV 后，为了保护数据，避免数据丢失问题，PV 对象会受到保护，在系统中无法被删除。
+
+
+
+###### 回收策略
+
+当用户不再使用其存储卷时，他们可以从 API 中将 PVC 对象删除， 从而允许该资源被回收再利用。PersistentVolume 对象的回收策略告诉集群， 当其被从申领中释放时如何处理该数据卷。 目前，数据卷可以被 Retained（保留）、Recycled（回收）或 Deleted（删除）。
+
+**保留Retain**:
+
+回收策略 Retain 使得用户可以手动回收资源。当 PersistentVolumeClaim 对象被删除时，PersistentVolume 卷仍然存在，对应的数据卷被视为"已释放（released）"。 由于卷上仍然存在这前一申领人的数据，**该卷还不能用于其他申领**。 管理员可以通过下面的步骤来手动回收该卷：
+删除 PersistentVolume 对象。与之相关的、位于外部基础设施中的存储资产 （例如 AWS EBS、GCE PD、Azure Disk 或 Cinder 卷）在 PV 删除之后仍然存在。
+
+根据情况，手动清除所关联的存储资产上的数据。
+手动删除所关联的存储资产。
+如果你希望重用该存储资产，可以基于存储资产的定义创建新的 PersistentVolume 卷对象。
+
+**删除Delete：**
+
+对于支持 Delete 回收策略的卷插件，删除动作会将 PersistentVolume 对象从 Kubernetes 中移除，**同时也会**从外部基础设施（如 AWS EBS、GCE PD、Azure Disk 或 Cinder 卷）中移除所关联的存储资产。 动态制备的卷会继承其 StorageClass 中设置的回收策略， 该策略默认为 Delete。管理员需要根据用户的期望来配置 StorageClass； 否则 PV 卷被创建之后必须要被编辑或者修补。
+
+
+
+##### PV
+
+查看
+
+```bash
+kubectl get pv
+```
+
+**状态**
+
+Avaliable：空闲未绑定
+
+Bound：已经和PVC绑定
+
+Release：PVC被删除，资源已回收，但是PV未被重新使用
+
+Failed：自动回收失败
+
+
+
+**典型配置**
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv0001
+spec:
+  capacity:
+    storage: 5Gi # pv 的容量
+  volumeMode: Filesystem # 存储类型为文件系统
+  accessModes: # 访问模式：ReadWriteOnce、ReadWriteMany、ReadOnlyMany
+    - ReadWriteOnce # 可被单节点独写
+  persistentVolumeReclaimPolicy: Recycle # 回收策略
+  storageClassName: slow # 创建 PV 的存储类名，需要与 pvc 的相同
+  mountOptions: # 加载配置
+    - hard
+    - nfsvers=4.1
+  nfs: # 连接到 nfs
+    path: /data/nfs/rw/test-pv # 存储路径
+    server: 192.168.113.121 # nfs 服务地址
+```
+
+
+
+##### PVC
+
+好处就是业务不需要考虑真正的存储是怎么实现的，只需要在PVC上说明要求，它自动回去匹配合适的PV
+
+**典型配置**
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce # 权限需要与对应的 pv 相同
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 8Gi # 资源可以小于 pv 的，但是不能大于，如果大于就会匹配不到 pv
+  storageClassName: slow # 名字需要与对应的 pv 相同
+#  selector: # 使用选择器选择对应的 pv
+#    matchLabels:
+#      release: "stable"
+#    matchExpressions:
+#      - {key: environment, operator: In, values: [dev]}
+```
+
+PVC绑定PV有几个条件
+
+1. accessMode 必须相同
+2. request的资源大小要小于等于PV的capacity
+3. storageClassName 必须相同
+4. 上面都符合的情况下，还可以用selector做精确匹配
+
+
+
+Pod绑定PVC
+
+```yaml
+# 在 pod 的挂载容器配置中，增加 pvc 挂载
+containers:
+  ......
+  volumeMounts:
+    - mountPath: /tmp/pvc
+      name: nfs-pvc-test
+volumes:
+  - name: nfs-pvc-test
+    persistentVolumeClaim:
+      claimName: nfs-pvc # pvc 的名称
+```
+
+##### StorageClass
+
+k8s 中提供了一套自动创建 PV 的机制，就是基于 StorageClass 进行的，通过 StorageClass 可以实现仅仅配置 PVC，然后交由 StorageClass 根据 PVC 的需求动态创建 PV。
+
+
+
+## 高级调度
+
+### CronJob
+
+在 k8s 中周期性运行计划任务，与 linux 中的 crontab 相同
+
+注意点：CronJob 执行的时间是 controller-manager 的时间，所以一定要确保 controller-manager 时间是准确的
+
+简单讲就是起一个Pod，然后在这个Pod里面定时执行command
+
+**典型配置**
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hello
+spec:
+  concurrencyPolicy: Allow # 并发调度策略：Allow 允许并发调度，Forbid：不允许并发执行，Replace：如果之前的任务还没执行完，就直接执行新的，放弃上一个任务
+  failedJobsHistoryLimit: 1 # 保留多少个失败的任务
+  successfulJobHistoryLimit: 3 # 保留多少个成功的任务
+  suspend: false # 是否挂起任务，若为 true 则该任务不会执行
+#  startingDeadlineSeconds: 30 # 间隔多长时间检测失败的任务并重新执行，时间不能小于 10
+  schedule: "* * * * *" # 调度策略
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: busybox:1.28
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - date; echo Hello from the Kubernetes cluster
+          restartPolicy: OnFailure
+```
+
+
+
+### InitContainter
+
+在真正的容器启动之前，先启动 InitContainer，在初始化容器中完成真实容器所需的初始化操作，完成后再启动真实的容器。
+
+相对于 postStart 来说，首先 InitController 能够保证一定在 EntryPoint 之前执行，而 postStart 不能，其次 postStart 更适合去执行一些命令操作，而 InitController 实际就是一个容器，可以在其他基础容器环境下执行更复杂的初始化功能。
+
+```yaml
+# 在 pod 创建的模板中配置 initContainers 参数：
+spec:
+  initContainers:
+  - image: nginx
+    imagePullPolicy: IfNotPresent
+    command: ["sh", "-c", "echo 'inited;' >> ~/.init"]
+    name: init-test
+```
+
+
+
+### 污点 Taint
+
+k8s 集群中可能管理着非常庞大的服务器，这些服务器可能是各种各样不同类型的，比如机房、地理位置、配置等，有些是计算型节点，有些是存储型节点，此时我们希望能更好的将 pod 调度到与之需求更匹配的节点上。
+
+此时就需要用到污点（Taint）和容忍（Toleration），这些配置都是 key: value 类型的。
+
+
+
+污点：是标注在节点上的，当我们在一个节点上打上污点以后，k8s 会认为尽量不要将 pod 调度到该节点上，除非该 pod 上面表示可以容忍该污点，且一个节点可以打多个污点，此时则需要 pod 容忍所有污点才会被调度该节点。
+
+```bash
+# 为节点打上污点
+kubectl taint node k8s-master key=value:NoSchedule
+
+# 移除污点 后面加一个减号
+kubectl taint node k8s-master key=value:NoSchedule-
+
+# 查看污点
+kubectl describe no k8s-master
+```
+
+污点的影响：
+
+- NoSchedule：不能容忍的 pod **不会**被调度到该节点，但是已经存在的节点不会被驱逐
+- NoExecute：不能容忍的节点会被**立即清除**，能容忍且没有配置 `tolerationSeconds` 属性，则可以一直运行，设置了 tolerationSeconds: 3600 属性，则该 pod 还能继续在该节点运行 3600 秒
+
+
+
+容忍：是标注在 pod 上的，当 pod 被调度时，如果没有配置容忍，则该 pod 不会被调度到有污点的节点上，只有该 pod 上标注了满足某个节点的所有污点，则会被调度到这些节点
+
+```yaml
+# pod 的 spec 下面配置容忍 和container同级
+tolerations:
+- key: "污点的 key"
+  value: "污点的 value"
+  offect: "NoSchedule" # 污点产生的影响
+  operator: "Equal" # 表是 value 与污点的 value 要相等，也可以设置为 Exists 表示存在 key 即可，此时可以不用配置 value
+```
+
+比较操作类型operator为 Equal，则意味着必须与污点值做匹配，key/value都必须相同，才表示能够容忍该污点
+
+比较操作类型operator为 Exists，容忍与污点的比较只比较 key，不比较 value，不关心 value 是什么东西，只要 key 存在，就表示可以容忍。
+
 
 
 ## K8S 的资源清单
@@ -984,7 +1440,7 @@ type：service的类型，有三种
 | spec.containers[]                           | list    | 定义 Spec 对象的容器列表                                     |
 | spec.containers[].name                      | String  | 为列表中的某个容器定义名称                                   |
 | spec.containers[].image                     | String  | 为列表中的某个容器定义需要的镜像名称                         |
-| spec.containers[].imagePullPolicy           | string  | 定义镜像拉取策略，有 Always、Never、IfNotPresent 三个值可选<br />  - Always（默认）：意思是每次都尝试重新拉取镜像<br />  - Never：表示仅适用本地镜像<br />  - IfNotPresent：如果本地有镜像就使用本地镜像，没有就拉取在线镜像。 |
+| spec.containers[].imagePullPolicy           | string  | 定义镜像拉取策略，有 Always、Never、IfNotPresent 三个值可选  - Always（默认）：意思是每次都尝试重新拉取镜像 <br /> - Never：表示仅适用本地镜像<br />  - IfNotPresent：如果本地有镜像就使用本地镜像，没有就拉取在线镜像。 |
 | spec.containers[].command[]                 | list    | 指定容器启动命令，因为是数组可以指定多个，不指定则使用镜像打包时使用的启动命令。 |
 | spec.containers[].args[]                    | list    | 指定容器启动命令参数，因为是数组可以指定多个。               |
 | spec.containers[].workingDir                | string  | 指定容器的工作目录                                           |
