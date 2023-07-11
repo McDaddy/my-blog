@@ -324,3 +324,8 @@ vscode调试Node.js的通用模板
 
 
 
+## 线上调试
+
+线上代码无法直接修改，可以借用devTool的**Local override**方法来覆盖远程文件进行调试
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230519140412155.png" alt="image-20230519140412155" style="zoom:50%;" />

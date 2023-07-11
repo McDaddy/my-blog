@@ -1,3 +1,211 @@
+## 理论篇
+
+Docker为什么能颠覆早期的PaaS平台？
+
+Docker 项目给 PaaS 世界带来的“降维打击”，其实是提供了一种非常便利的打包机制。这种机制直接打包了**应用运行所需要的整个操作系统**，从而保证了本地环境和云端环境的**高度一致**，避免了用户通过“试错”来匹配两种不同运行环境之间差异的痛苦过程。而这一切的核心就是**Docker镜像**
+
+
+
+### 什么是容器？
+
+容器其实是一种**沙盒技术**。顾名思义，沙盒就是能够像一个集装箱一样，把你的应用“装”起来的技术。这样，应用与应用之间，就因为有了边界而不至于相互干扰；而被装进集装箱的应用，也可以被方便地搬来搬去
+
+
+
+### 那么容器该怎么实现？
+
+> 第一个要解决的问题是如何实现容器其实就是如何实现应用之间的**边界**。
+
+一个应用可以简单理解为一个计算机中的进程，而一个进程就是**一个程序在计算机中运行起来的执行环境（数据和状态）的总和**。
+
+**容器技术的核心功能，就是通过约束和修改进程的动态表现，从而为其创造出一个“边界”。**
+
+对于 Docker 等大多数 Linux 容器来说，**Cgroups 技术**是用来制造约束的主要手段，而**Namespace 技术**则是用来修改进程视图的主要方法
+
+**Namespace机制**：它其实只是 Linux 创建新进程的一个可选参数。在 Linux 系统中创建线程的系统调用是 clone()，比如：
+
+```
+int pid = clone(main_function, stack_size, SIGCHLD, NULL); 
+```
+
+这个系统调用就会为我们创建一个新的进程，并且返回它的进程号 pid。而当我们用 clone() 系统调用创建一个新进程时，就可以在参数中指定 CLONE_NEWPID 参数，比如：
+
+```
+int pid = clone(main_function, stack_size, CLONE_NEWPID | SIGCHLD, NULL); 
+```
+
+这个新建出来的进程的pid就是1，虽然在实际的宿主机里，这个进程可能是100
+
+所以Namespace技术本质就是一个**障眼法**。而容器其实只是一种特殊的进程。实际上在宿主机上并没有一个**真正的**Docker容器在运行，Docker 项目帮助用户启动的，还是原来的应用进程，只不过在创建这些进程时，Docker 为它们加上了各种各样的 Namespace 参数。基于这点，所以称Docker是一种**轻量级**的虚拟化技术，其实就是对比虚拟机得来
+
+
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230528162557445.png" alt="image-20230528162557445" style="zoom:33%;" />
+
+这张图可以清晰得体现出Docker对比传统虚拟机的**优势**
+
+因为虚拟机必须通过Hypervisor来创建真实的虚拟机，而每个虚拟机都需要一个完整真实的Guest OS，然后才能执行用户的程序，这里面的额外资源**开销**必然是更多的
+
+相比下，容器化仅仅是通过上面的障眼法做逻辑上的隔离，也不需要独立的操作系统，因此基本是没有任何额外开销的
+
+但是仅仅有Namespace肯定是不够的，因为这样**隔离得不彻底。**
+
+- 首先，既然容器只是运行在宿主机上的一种特殊的进程，那么多个容器之间使用的就还是**同一个宿主机的操作系统内核**。
+  所以不可能在linux内核的宿主机上跑windows的容器，反之亦然。甚至Linux内核有高低版本差的情况也可能不能跑
+- 其次，在 Linux 内核中，有很多资源和对象是不能被 Namespace 化的，最典型的例子就是：时间。
+  因为共享了宿主机的时间，所以一旦某个容器改了时间，那么整个宿主机的时间也会随之被改变，这就是不符合预期的了。如果在生产环境上暴露了容器，那么将是非常大的安全隐患
+
+
+
+>  接下来第二个要解决的问题是**限制**
+
+一个Docker进程实际上是与宿主机上别的进程共享资源的，如何保证它所需的资源不受侵占？这是一个沙盒必须要有的功能
+
+**Linux Cgroups 就是 Linux 内核中用来为进程设置资源限制的一个重要功能。**
+
+**Linux Cgroups 的全称是 Linux Control Group。它最主要的作用，就是限制一个进程组能够使用的资源上限，包括 CPU、内存、磁盘、网络带宽等等。简单粗暴地理解呢，它就是一个子系统目录加上一组资源限制文件的组合**。
+
+
+
+在 Linux 中，Cgroups 给用户暴露出来的操作接口是文件系统，即它以文件和目录的方式组织在操作系统的 /sys/fs/cgroup 路径下
+
+![image-20230528211431027](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230528211431027.png)
+
+可以看到，在 /sys/fs/cgroup 下面有很多诸如 cpuset、cpu、 memory 这样的子目录，也叫子系统。这些都是这台机器当前可以被 Cgroups 进行限制的**资源种类**。而在子系统对应的资源种类下，就可以看到该类资源具体可以被限制的方法。
+
+![image-20230528211628399](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230528211628399.png)
+
+以CPU为例，通过修改cfs_period 和 cfs_quota 这样的关键词，可以用来限制进程在长度为 cfs_period 的一段时间内，只能被分配到总量为 cfs_quota 的 CPU 时间
+
+```bash
+# 先在cpu下新建一个container分组
+
+$ cat /sys/fs/cgroup/cpu/container/cpu.cfs_quota_us 
+-1  # cfs_quota 默认-1表示没有CPU限制
+$ cat /sys/fs/cgroup/cpu/container/cpu.cfs_period_us 
+100000 # cfs_period 默认是100 ms（100000 us）
+
+$ echo 20000 > /sys/fs/cgroup/cpu/container/cpu.cfs_quota_us # 表示单位cfs_period中只能使用20ms的CPU
+$ echo 226 > /sys/fs/cgroup/cpu/container/tasks  # 把进程PID加入到这个组的tasks里面
+#最后就会发现这个进程无论怎么死循环，最多只能占用20%的CPU资源
+```
+
+这样就能做到对资源的限制了
+
+但cgroup的限制还是有限的，比如对**/proc**目录，它是用来记录当前内核运行状态的一系列特殊文件。用户可以通过访问这些文件，查看系统以及当前正在运行的进程的信息，比如 CPU 使用情况、内存占用率等，这些文件也是 top 指令查看系统信息的主要数据来源。
+
+在容器中使用top命令可以看到和宿主机一样的CPU和内存信息。原因是**/proc 文件系统不了解 Cgroups 限制的存在**。
+
+### 为什么进入容器看不到宿主机的文件目录？
+
+同上，还是Namespace起的作用，上面的Namespace是创建一个PID为1的新进程，让容器以为自己是根进程，这次用到的是**Mount Namespace**，作用就是在挂载目录时，利用**chroot**或(pivot_root)这个命令，把根目录从宿主机的根换成了镜像中操作系统的根
+
+**这个挂载在容器根目录上、用来为容器进程提供隔离后执行环境的文件系统，就是所谓的“容器镜像”。它还有一个更为专业的名字，叫作：rootfs（根文件系统）**
+
+所以对 Docker 项目来说，它最核心的原理实际上就是为待创建的用户进程：
+
+1. 启用 Linux Namespace 配置；
+2. 设置指定的 Cgroups 参数；
+3. 切换进程的根目录（Change Root）
+
+**rootfs 只是一个操作系统所包含的文件、配置和目录，并不包括操作系统内核。** rootfs是解决云端和本地环境一致性的主要手段，**由于 rootfs 里打包的不只是应用，而是整个操作系统的文件和目录，也就意味着，应用以及它运行所需要的所有依赖，都被封装在了一起。**
+
+Docker的一大好处是，每次修改镜像的内容，并不需要从头保存镜像的内容，而是增量保存
+
+每个镜像其实都是分layer做增量的
+
+```
+$ docker image inspect ubuntu:latest
+...
+     "RootFS": {
+      "Type": "layers",
+      "Layers": [
+        "sha256:f49017d4d5ce9c0f544c...",
+        "sha256:8f2b771487e9d6354080...",
+        "sha256:ccd4d61916aaa2159429...",
+        "sha256:c01d74f99de40e097c73...",
+        "sha256:268a067217b5fe78e000..."
+      ]
+    }
+```
+
+
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230528223606903.png" alt="image-20230528223606903" style="zoom: 33%;" />
+
+每个镜像都分为三个部分
+
+- 只读层：ro+wh，即 readonly+whiteout。这些层，都以增量的方式分别包含了操作系统的一部分。
+- 可读写层：在没有写入文件之前，这个目录是空的。而一旦在容器里做了写操作，修改产生的内容就会以增量的方式出现在这个层中。如果要删除只读层里的一个文件呢？
+
+比如，你要删除只读层里一个名叫 foo 的文件，那么这个删除操作实际上是在可读写层创建了一个名叫.wh.foo 的文件。这样，当这两个层被联合挂载之后，foo 文件就会被.wh.foo 文件“遮挡”起来，“消失”了。这个功能，就是“ro+wh”的挂载方式，即只读 +whiteout 的含义。我喜欢把 whiteout 形象地翻译为：“白障”。
+
+- Init层：Init 层是 Docker 项目单独生成的一个内部层，专门用来存放 /etc/hosts、/etc/resolv.conf 等信息，需要这样一层的原因是，这些文件本来属于只读的 Ubuntu 镜像的一部分，但是用户往往需要在启动容器时写入一些指定的值比如 hostname，所以就需要在可读写层对它们进行修改。可是，这些修改往往只对当前的容器有效，我们并不希望执行 docker commit 时，把这些信息连同可读写层一起提交掉。
+
+### docker exec 是怎么做到进入容器里的？
+
+可以通过docker ps得到容器ID，再通过docker inspect 拿到容器的运行时具体信息，比如它的真实PID。
+
+每个进程在`/proc`下都有一个对应的文件夹，一个进程的每种 Linux Namespace，都在它对应的 /proc/[进程号]/ns 下有一个对应的虚拟文件，并且链接到一个真实的 Namespace 文件上。
+
+![image-20230530002555868](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230530002555868.png)
+
+可以利用一个Linux的系统调用`setns() `，它接受两个参数，一个是进程的Namespace文件描述符fd，第二个是要在这个Namespace里运行的进程，比如/bin/sh
+
+所以我们在`docker exec -it xxxx /bin/sh` 时，就等于是讲/bin/sh这个进程附加到这个运行中的容器的Namespace中，这样执行出来的结果就是之前障眼法后的环境了。这样也就等于进入了容器
+
+
+
+### 什么是控制器模式？
+
+控制器模式是为了统一地实现对各种不同的对象或者资源进行的编排操作而实现的设计方法。也可以称为**控制循环**
+
+使用伪代码表示如下
+
+```
+for {
+  实际状态 := 获取集群中对象 X 的实际状态（Actual State）
+  期望状态 := 获取集群中对象 X 的期望状态（Desired State）
+  if 实际状态 == 期望状态{
+    什么都不做
+  } else {
+    执行编排动作，将实际状态调整为期望状态
+  }
+}
+```
+
+实际状态：k8s收集到的资源的当前状态
+
+期望状态：YAML文件中定义的状态
+
+当两者相同时什么也不做，当两者不同时执行增删改操作
+
+一个控制器分为两部分，即控制方和被控制方
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230605165457749.png" alt="image-20230605165457749" style="zoom:33%;" />
+
+这种模式和**事件驱动**最大的区别就是事件驱动是一次性的行为，如果操作失败了就很难控制。而控制器模式因为是声明式的定义会一直循环，直到符合期望为止。**注意**上面的伪代码其实是一个无限循环，所以k8s可以帮助我们去监控资源的状态， 而不需要我们手动去触发事件
+
+
+
+### 什么是声明式API
+
+这里的API其实指的是API对象
+
+- 首先，所谓“声明式”，指的就是我只需要提交一个定义好的 **API 对象**来“声明”，我所期望的状态是什么样子。
+- 其次，“声明式 API”允许有多个 API 写端，以 *PATCH* 的方式对 API 对象进行修改，而无需关心本地原始 YAML 文件的内容。
+- 最后，也是最重要的，有了上述两个能力，Kubernetes 项目才可以基于对 API 对象的增、删、改、查，在完全无需外界干预的情况下，完成对“实际状态”和“期望状态”的调谐（Reconcile）过程。
+
+说白了就是通过控制器模式，只要设定了期望的结果，那么k8s就会自动帮助我们达到这个预期，不论是新建还是修改都可以通过`kubectl apply `来通知api-server我的预期是什么
+
+
+
+### CRD
+
+Custom Resource Definition。指的是允许用户在 Kubernetes 中添加一个跟 Pod、Node 类似的、新的 API 资源类型，即：自定义 API 资源。
+
+
+
 ## 安装Dokcer
 
 在**CentOS 7**中安装Dokcer步骤
@@ -48,6 +256,29 @@ docker version
 
 
 ## 安装k8s
+
+### Kubeadm
+
+kubeadm是一个由社区推动的，用于简化k8s安转的项目
+
+`kubeadm init` 做了哪些工作？
+
+- 环境检查：主要检查Linux内核版本，cgroups是否可用，是否安装了docker，端口是否可用等一系列问题
+- 生成证书：生成k8s对外提供服务的各种证书和目录，因为k8s暴露出去的服务都是需要https访问的，所以就需要预先生成好证书
+- 生成访问`kube-apiserver`所需的配置文件：即`/etc/kubernetes/xxx.conf`
+
+```bash
+ls /etc/kubernetes/
+admin.conf  controller-manager.conf  kubelet.conf  scheduler.conf
+```
+
+这些文件就是记录上Master节点的各种信息外加上面生成的证书信息，这样如`scheduler/kubelet`等组件就可以直接读这些配置，用来和apiserver建立安全连接
+
+- 为Master组件生成Pod配置文件：这里指kube-apiserver、kube-controller-manager、kube-scheduler。会把相关的配置yaml放在/etc/kubernetes/manifests中，等到kubelet启动后就会自动部署
+- 为集群生成一个bootstrap Tooken，用来给Worker节点加入时使用
+- 安装默认插件： kube-proxy 和 DNS 这两个插件
+
+
 
 1. 开始前如果有防火墙需要先关闭，需要时也要执行后续的操作
 
@@ -289,6 +520,8 @@ source ~/.bash_profile
 | 以纯文本格式输出所有信息 | -o wide |
 | 输出 yaml 格式           | -o yaml |
 
+### 
+
 ### create
 
 创建对象
@@ -308,6 +541,8 @@ $ kubectl get pods --selector=app=cassandra rc -o \
 # 获取所有节点的 ExternalIP
 $ kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="ExternalIP")].address}'
 ```
+
+
 
 ### get
 
@@ -406,7 +641,180 @@ spec: # 期望 Pod 按照这里面的描述进行创建
   restartPolicy: OnFailure # 重启策略，只有失败的情况才会重启
 ```
 
+### 为什么需要Pod
+
+为什么需要Pod这个概念，Pod是k8s中最小的API对象，为什么不是直接去管理容器？
+
+我们可以把镜像想象成一个`.exe`可执行程序，当双击执行之后它就变成了一个**进程**，而管理这些进程的k8s就是**操作系统**
+
+在真实操作系统中有一个**进程组**的概念，就是指某一群进程他们是强相关的，必须部署在一起。 而在容器间也会有这样的需求，
+
+比如说：有三个容器必须部署在同一台节点运行，且各种需要2G内存，目前只有有两个节点，一个有5G内存，一个有6G，所有我们单独控制容器，那么就会把三个容器依次部署到节点1，最后发现资源不足，然后只能回滚去尝试第二个节点，这就非常麻烦且浪费资源。如果我们能把它们打包，一开始就知道需要6G的内存，那么就会直接找到节点2来部署。
+
+**这个打包的概念其实就是Pod**。一个Pod可以包含一个到多个容器，它主要有以下几个优点
+
+1. 可以让Pod中的容器们直接用localhost进行通信，不需要考虑网络问题。一个Pod只有一个IP，所有的网络资源都是容器间共享的
+2. 可以让容器们共享volume
+3. 可以让容器们共享各种Linux Namespace
+
+### Pod 的实现原理
+
+Pod其实是一个**逻辑概念**，这个和容器是类似的，k8s处理的本质还是各种Namespace和Cgroups，并不存在真实的Pod边界或者隔离环境
+
+Pod的**本质**是**一组**共享了某些资源的**容器**
+
+在k8s中Pod的实现是需要使用一个**中间容器**的，这个容器叫作 Infra 容器。在这个 Pod 中，Infra 容器永远都是第一个被创建的容器，其他用户定义的容器都是通过`Join Network Namespace` 的方式，与 Infra 容器关联在一起。Infra容器的景象是`k8s.gcr.io/pause`
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230602144553482.png" alt="image-20230602144553482" style="zoom:33%;" />
+
+Infra容器相当于是Hold住了一个Network Namespace，其他用户容器加入后，大家就共享了这个Namespace，所有容器的网络环境是一致的。
+
+对于用户容器来说，可以理解为所有的进出流量都是通过Infra来完成的。而Pod的生命周期也是和Infra一致的，与用户容器无关
+
+### 单进程模式
+
+一个容器本质就是一个**进程**，或者说是**单进程模式**。
+
+并不是说一个容器里只能运行一个进程，而是说一个容器必然是通过EntryPoint + CMD启动的，容器的状态(运行中/失败/等)都是依据这个PID=1的进程来决定的，假如我们通过docker exec进入容器又启动了一个新的进程比如nginx，那么这个nginx不论它是成功还是报错，从容器外部都是**无法感知**的。
+
+因此往往各个实际应用进程都会被包装成独立容器（image），可以细粒度得去管控各个进程的状态。
+
+### Sidecar
+
+想象一个场景，我们需要一个Tomcat容器来发布一个War包，这个War包是不断更新的
+
+如果通过Docker可能有两种方案
+
+1. 把War放在Tomcat的镜像中，重新打包。这样就每次更新都要重新发布整体镜像
+2. 只发布Tomcat镜像，通过volume去挂载War。虽然这样可以动态更新War，但是在分布式的架构下，就要保证每个节点都上挂载相同的文件，那样也是很难实现的
+
+通过Pod我们就可以很简单得解决这个问题
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: javaweb-2
+spec:
+  initContainers:
+  - image: geektime/sample:v2
+    name: war
+    command: ["cp", "/sample.war", "/app"]
+    volumeMounts:
+    - mountPath: /app
+      name: app-volume
+  containers:
+  - image: geektime/tomcat:7.0
+    name: tomcat
+    command: ["sh","-c","/root/apache-tomcat-7.0.42-v2/bin/start.sh"]
+    volumeMounts:
+    - mountPath: /root/apache-tomcat-7.0.42-v2/webapps
+      name: app-volume
+    ports:
+    - containerPort: 8080
+      hostPort: 8001 
+  volumes:
+  - name: app-volume
+    emptyDir: {}
+```
+
+在一个Pod中配置两个容器
+
+**initContainer**： 配置和container基本一样，**区别是它会先于containter启动，而且是顺序的。只有当它启动完成并退出，container才会开始启动**
+
+通过这个InitContainer，这个镜像里面就包含最新的War，它所做的就是复制这个War到volume里
+
+等到container启动，它会发现volume里面已经有War存在了，**因为volume是共享的**。然后就可以顺利启动了
+
+这种方式就可以每次更新只发布一个war的镜像即可。这就是通过**组合**实现了Tomcat与War的解耦
+
+这个所谓的“组合”操作，正是容器设计模式里最常用的一种模式，它的名字叫：**sidecar**。sidecar 指的就是我们可以在一个 Pod 中，启动一个辅助容器，来完成一些独立于主进程（主容器）之外的工作。
+
+### 主要配置
+
+**凡是调度、网络、存储，以及安全相关的属性，基本上是 Pod 级别的。**
+
+**NodeSelector：**是一个供用户将 Pod 与 Node 进行绑定的字段，如下就是Pod只能部署在有disktype=ssd这个标签的节点上
+
+```yaml
+apiVersion: v1
+kind: Pod
+...
+spec:
+ nodeSelector:
+   disktype: ssd
+```
+
+**HostAliases：定义了 Pod 的 hosts 文件（比如 /etc/hosts）里的内容**
+
+```
+apiVersion: v1
+kind: Pod
+...
+spec:
+  hostAliases:
+  - ip: "10.1.2.3"
+    hostnames:
+    - "foo.remote"
+    - "bar.remote"
+...
+
+cat /etc/hosts
+# Kubernetes-managed hosts file.
+127.0.0.1 localhost
+...
+10.244.135.10 hostaliases-pod
+10.1.2.3 foo.remote
+10.1.2.3 bar.remote
+```
+
+**ImagePullPolicy**
+
+默认是Always，而如果它的值被定义为 Never 或者 IfNotPresent，则意味着 Pod 永远不会主动拉取这个镜像，或者只在宿主机上不存在这个镜像时才拉取。
+
+**lifecycle**
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lifecycle-demo
+spec:
+  containers:
+  - name: lifecycle-demo-container
+    image: nginx
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/bin/sh", "-c", "echo Hello from the postStart handler > /usr/share/message"]
+      preStop:
+        exec:
+          command: ["/usr/sbin/nginx","-s","quit"]
+```
+
+postStart: 指的是在容器启动后，立刻执行一个指定的操作。需要明确的是，postStart 定义的操作，虽然是在 Docker 容器 ENTRYPOINT 执行之后，但它并不严格保证顺序。也就是说，在 postStart 启动时，ENTRYPOINT 有可能还没有结束。如果执行失败，容器也会启动失败
+
+preStop： 发生的时机，则是容器被杀死之前（比如，收到了 SIGKILL 信号）。而需要明确的是，preStop 操作的执行，是同步的。所以，它会阻塞当前的容器杀死流程，直到这个 Hook 定义操作完成之后，才允许容器被杀死，这跟 postStart 不一样。
+
+### Status
+
+- Pending：Pod 的 YAML 文件已经提交给了 Kubernetes，API 对象已经被创建并保存在 Etcd 当中。但是，这个 Pod 里有些容器因为某种原因而不能被顺利创建。比如，调度不成功。
+- Runing：Pod 已经调度成功，跟一个具体的节点绑定。它包含的容器都已经创建成功，并且至少有一个正在运行中
+- Succeeded： Pod 里的所有容器都正常运行完毕，并且已经退出了。这种情况在运行一次性任务时最为常见。
+- Failed： Pod 里至少有一个容器以不正常的状态（非 0 的返回码）退出。可以通过describe命令查看Events或者logs命令查看日志
+- Unknown： 异常状态，意味着 Pod 的状态不能持续地被 kubelet 汇报给 kube-apiserver，这很有可能是主从节点（Master 和 Kubelet）间的通信出现了问题。
+
+### 恢复策略
+
+- Always：在任何情况下，只要容器不在运行状态，就自动重启容器；
+- OnFailure: 只在容器 异常时才自动重启容器；
+- Never: 从来不重启容器。
+
+
+
 ### 探针
+
+探针的主要意义是容器的Running状态不能代表应用是正常启动的，需要通过这种测试的方法来确定容器的状态
 
 #### startupProbe
 
@@ -546,6 +954,12 @@ kubectl get po --show-labels
 
 ### Deployment
 
+#### **一个单 Pod 的 Deployment 与一个 Pod 最主要的区别是什么？**
+
+一个Pod一旦在一个节点开始运行，那么不论怎么重启都是在这个节点上绑定了，不会跑到别的节点上去，只有通过Deployment来管理才会动态变更
+
+
+
 对应于**无状态**应用，一个deployment会对应1-N个**ReplicaSet**（副本集），一个ReplicaSet里面有N个Pod
 
 Deployment 为 Pod 和 Replica Set 提供声明式更新。Pod的声名内容就对应其中的`template`属性
@@ -574,6 +988,8 @@ kubectl create -f xxx.yaml --record
 但是实际情况三者一般不会1:1:1，而是 1个deploy对应N个replicaSet，因为一旦deploy出现更新，那么就会生成一个新的rs，新的rs完全ready后老的rs也不会销毁。一个rs会对应N个Pod，这个N取决于replica的配置数量
 
 **典型的deployment yaml**
+
+deployment的restartPolicy**必须**是Always，不然就没法做到在控制循环中确保实例个数
 
 ```yaml
 apiVersion: apps/v1 # deployment api 版本
@@ -606,6 +1022,49 @@ spec:
       restartPolicy: Always # 重启策略
       terminationGracePeriodSeconds: 30 # 删除操作最多宽限多长时间
 ```
+
+#### 为什么Deploy不直接控制Pod，而是要有一个中间的rs？
+
+会产生一个新的rs的**前提**是template发生改变，如果只是改变replica的数量，只会在当前rs上进行增删Pod
+
+这样的好处就是对版本做了分别的控制，如果没有rs，那么在滚动更新中不同版本的Pod相当于就是混杂在一起的。通过rs可以直观得看到v1的Pod状态和v2的状态
+
+ReplicaSet其实可以理解为Pod**版本管理**，当我们使用命令去回滚deploy时，实际只是把当前的rs数量降到0，把旧的rs从0升到期望的过程
+
+```
+$ kubectl rollout undo deployment/nginx-deployment --to-revision=2
+deployment.extensions/nginx-deployment
+```
+
+
+
+#### --record
+
+在命令后面添加`--record`，就可以记录接下来所有的操作，后面就可以通过命令来查看历史
+
+```
+$ kubectl rollout history deployment/nginx-deployment
+deployments "nginx-deployment"
+REVISION    CHANGE-CAUSE
+1           kubectl create -f nginx-deployment.yaml --record
+2           kubectl edit deployment/nginx-deployment
+3           kubectl set image deployment/nginx-deployment nginx=nginx:1.91
+```
+
+#### 状态
+
+```bash
+$ kubectl get deployments
+NAME               DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+nginx-deployment   3         0         0            0           1s
+```
+
+1. DESIRED：用户期望的 Pod 副本个数（spec.replicas 的值）
+2. CURRENT：当前处于 Running 状态的 Pod 的个数
+3. UP-TO-DATE：当前处于最新版本的 Pod 的个数，所谓最新版本指的是 Pod 的 Spec 部分与 Deployment 里 Pod 模板里定义的**完全一致**，打个比方：期望是3，因为滚动更新，CURRENT可能也是3，但是两个是旧的一个是新的，此时UP-TO-DATE就是1
+4. AVAILABLE：当前已经可用的 Pod 的个数，即：**既是** Running 状态，**又是**最新版本，**并且**已经处于 Ready（健康检查正确）状态的 Pod 的个数。
+
+
 
 #### 滚动更新
 
@@ -710,6 +1169,17 @@ StatefulSet对应的是**有状态**的服务，它下面没有rs的概念
 
 ![image-20230506141122134](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230506141122134.png)
 
+#### 有状态是指哪些状态呢？
+
+1. **拓扑状态**。这种情况意味着，应用的多个实例之间不是完全对等的关系。这些应用实例，必须按照某些顺序启动，比如应用的主节点 A 要先于从节点 B 启动。而如果你把 A 和 B 两个 Pod 删除掉，它们再次被创建出来时也必须严格按照这个顺序才行。并且，新创建出来的 Pod，必须和原来 Pod 的**网络标识一样**，这样原先的访问者才能使用同样的方法，访问到这个新 Pod。
+2. **存储状态**。这种情况意味着，应用的多个实例分别绑定了不同的存储数据。对于这些应用实例来说，Pod A 第一次读取到的数据，和隔了十分钟之后再次读取到的数据，应该是同一份，哪怕在此期间 Pod A 被重新创建过。这种情况最典型的例子，就是一个数据库应用的多个存储实例。
+
+总结起来，第一就是保持网络标识不变，即使删除重建还是可以用之前的标识来访问，第二就是保持存储状态，即使Pod删除重建，它对应的数据卷状态还是保持的，能读到的内容还是一致的
+
+StatefulSet 的**核心功能**，就是通过某种方式记录这些状态，然后在 Pod 被重新创建时，能够为新 Pod 恢复这些状态
+
+
+
 **典型配置文件**
 
 ```yaml
@@ -771,6 +1241,22 @@ nslookup web-0.nginx
 内部可以访问的服务名就是`pod名.svc名`
 
 ![image-20230506144726331](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230506144726331.png)
+
+**为什么通过`<pod-name>.<svc-name>`的形式就能稳定访问到特定的Pod？**
+
+首先这是**Headless Service**的实现方式，Headless Service就是配置了`clusterIP: None`的Service，这种Service只能通过DNS记录来暴露它所代理的Pod。它所代理的Pod都会有如此的一条DNS记录。这就是这个Pod的唯一网络身份记录
+
+```
+<pod-name>.<svc-name>.<namespace>.svc.cluster.local
+```
+
+接下来即使删除了Pod，重新创建仍然会沿用之前从0开始编号的Pod id，所以名字对Pod来说是固定不变的，它的网络标识也是固定不变的，所以就可以稳定访问
+
+> StatefulSet 这个控制器的主要作用之一，就是使用 Pod 模板创建 Pod 的时候，对它们进行编号，并且按照编号顺序逐一完成创建工作。而当 StatefulSet 的“控制循环”发现 Pod 的“实际状态”与“期望状态”不一致，需要新建或者删除 Pod 进行“调谐”的时候，它会严格按照这些 Pod 编号的顺序，逐一完成这些操作。
+
+**如何维持上面说的存储状态？**
+
+在StatefulSet里，每个Pod被分配的PVC也会和Pod一样被编号，结构是`PVC名-Pod名-序号`，这个序号和Pod的序号是完全一致的，加入Pod被删除重建，那么重建结束后的Pod会找到与自身序号相同的PVC匹配，进而找到绑定的PV
 
 
 
@@ -852,7 +1338,11 @@ spec:
 
 ```
 
-DaemonSet直译理解就是**守护进程**，可以用来部署些监控类的服务
+DaemonSet直译理解就是**守护进程**，可以用来部署些监控类的服务，它控制的Pod有以下特征
+
+1. 这个 Pod 运行在 Kubernetes 集群里的每一个节点（Node）上；
+2. 每个节点上只有一个这样的 Pod 实例；
+3. 当有新的节点加入 Kubernetes 集群后，该 Pod 会自动地在新节点上被创建出来；而当旧节点被删除后，它上面的 Pod 也相应地会被回收掉。
 
 DaemonSet不需要指定replica，**默认会在除了Master之外的所有节点都部署一个Pod**，如果需要指定部署的节点，就需要用到**nodeSelector**
 
@@ -871,6 +1361,29 @@ spec:
 ```
 
 滚动更新和StatefulSet一致，但建议使用onDelete策略，这样会比较节约资源
+
+### **ControllerRevision**
+
+像StatefulSet和DaemonSet都是没有replicaSet管理Pod的，而replicaSet其实就是一个版本管理器。所以他们两个是怎么管理版本的呢？
+
+这里需要用到ControllerRevision，它其实就是一个历史记录的对象，可以通过命令来获取
+
+```bash
+$ kubectl get controllerrevision -n kube-system -l name=fluentd-elasticsearch
+NAME                               CONTROLLER                             REVISION   AGE
+fluentd-elasticsearch-64dc6799c9   daemonset.apps/fluentd-elasticsearch   2 
+```
+
+然后通过命令来做回滚操作
+
+```bash
+$ kubectl rollout undo daemonset fluentd-elasticsearch --to-revision=1 -n kube-system
+daemonset.extensions/fluentd-elasticsearch rolled back
+```
+
+这个操作结束后，当前的revision并不是1，而是3，因为这个操作是把1时的状态重新执行了一次（等价于执行一次 kubectl apply -f “旧的 DaemonSet 对象”），相当于把它更新到一个旧版本。而这个操作本身又形成了一个新的ControllerRevision
+
+
 
 
 
@@ -981,6 +1494,8 @@ type：service的类型，有三种
 
 Ingress 可以理解为也是一种 LB 的抽象，它的实现也是支持 nginx、haproxy 等负载均衡服务的
 
+在实际使用中**一般情况**下都需要配置一个域名，但是一般的云厂商可以在不配域名的情况下分配出一个**VIP**出来作为访问的入口
+
 **典型配置**
 
 ```yaml
@@ -1004,6 +1519,72 @@ spec:
               number: 80 # service 的端口
         path: /api # 等价于 nginx 中的 location 的路径前缀匹配
 ```
+
+
+
+### Projected Volume
+
+projected翻译为**投射**，所以这也翻译为投射数据卷。总共有4种
+
+1. Secret
+2. ConfigMap
+3. Downward API
+4. ServiceAccountToken
+
+其中Downward API的作用是让Pod可以获取自身的Pod配置信息
+
+```yaml
+containers:
+  - name: client-container
+    image: k8s.gcr.io/busybox
+    command: ["sh", "-c"]
+    args:
+    - while true; do
+        if [[ -e /etc/podinfo/labels ]]; then
+          echo -en '\n\n'; cat /etc/podinfo/labels; fi;
+        sleep 5;
+      done;
+    volumeMounts:
+      - name: podinfo
+        mountPath: /etc/podinfo
+        readOnly: false
+volumes:
+    - name: podinfo
+      projected:
+        sources:
+        - downwardAPI:
+            items:
+              - path: "labels"
+                fieldRef:
+                  fieldPath: metadata.labels
+```
+
+比如这样， Pod中的容器就可以在` /etc/podinfo/labels `中拿到Pod自身的metadata.labels了
+
+以下是其它支持的字段内容
+
+```
+1. 使用 fieldRef 可以声明使用:
+spec.nodeName - 宿主机名字
+status.hostIP - 宿主机 IP
+metadata.name - Pod 的名字
+metadata.namespace - Pod 的 Namespace
+status.podIP - Pod 的 IP
+spec.serviceAccountName - Pod 的 Service Account 的名字
+metadata.uid - Pod 的 UID
+metadata.labels['<KEY>'] - 指定 <KEY> 的 Label 值
+metadata.annotations['<KEY>'] - 指定 <KEY> 的 Annotation 值
+metadata.labels - Pod 的所有 Label
+metadata.annotations - Pod 的所有 Annotation
+ 
+2. 使用 resourceFieldRef 可以声明使用:
+容器的 CPU limit
+容器的 CPU request
+容器的 memory limit
+容器的 memory request
+```
+
+但有个前提是注入的信息**必须**是Pod启动前就定义好的，不能动态投射运行时加入的信息，如果需要动态获取就要考虑使用sidecar来实现
 
 
 
@@ -1325,6 +1906,19 @@ k8s 中提供了一套自动创建 PV 的机制，就是基于 StorageClass 进�
 
 ## 高级调度
 
+### Job
+
+可以理解为执行成功就退出的Pod
+
+Job的restartPolicy**只能**是OnFailure或者Never，如果设置了Never，在执行失败后Job Controller就会重新启动一个新的Pod。如果设置为OnFailure那才是普通的重启
+
+#### 并行Job
+
+在 Job 对象中，负责并行控制的参数有两个：
+
+1. spec.parallelism，它定义的是一个 Job 在任意时间最多可以启动多少个 Pod 同时运行；
+2. spec.completions，它定义的是 Job 至少要完成的 Pod 数目，即 Job 的最小完成数，或者说目标完成数
+
 ### CronJob
 
 在 k8s 中周期性运行计划任务，与 linux 中的 crontab 相同
@@ -1410,7 +2004,7 @@ kubectl describe no k8s-master
 
 
 
-容忍：是标注在 pod 上的，当 pod 被调度时，如果没有配置容忍，则该 pod 不会被调度到有污点的节点上，只有该 pod 上标注了满足某个节点的所有污点，则会被调度到这些节点
+**容忍**：是标注在 pod 上的，当 pod 被调度时，如果没有配置容忍，则该 pod 不会被调度到有污点的节点上，只有该 pod 上标注了满足某个节点的所有污点，则会被调度到这些节点
 
 ```yaml
 # pod 的 spec 下面配置容忍 和container同级
@@ -1424,6 +2018,217 @@ tolerations:
 比较操作类型operator为 Equal，则意味着必须与污点值做匹配，key/value都必须相同，才表示能够容忍该污点
 
 比较操作类型operator为 Exists，容忍与污点的比较只比较 key，不比较 value，不关心 value 是什么东西，只要 key 存在，就表示可以容忍。
+
+
+
+### 亲和力 Affinity
+
+和污点容忍的主要区别是，这个是Pod主动去选择想部署在哪个节点Node，列出硬条件和非必须条件，符合条件的Node就优先部署就是亲和性，不符合条件的就不去部署或尽量不部署就是反亲和性，而污点是Node主动告诉Pod我这里不能部署或者调度，除非满足容忍
+
+#### NodeAffinity
+
+节点亲和力：进行 pod 调度时，优先调度到符合条件的亲和力节点上
+
+- RequiredDuringSchedulingIgnoredDuringExecution：硬亲和力，即支持必须部署在指定的节点上，也支持必须不部署在指定的节点上
+
+- PreferredDuringSchedulingIgnoredDuringExecution：软亲和力：尽量部署在满足条件的节点上，或尽量不要部署在被匹配的节点上
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: with-node-affinity
+spec:
+  affinity: # 亲和力配置
+    nodeAffinity: # 节点亲和力
+      requiredDuringSchedulingIgnoredDuringExecution: # 节点Node必须匹配下方配置
+        nodeSelectorTerms: # 选择器
+        - matchExpressions: # 匹配表达式
+          - key: topology.kubernetes.io/zone # 匹配 label 的 key
+            operator: In # 匹配方式，只要匹配成功下方的一个 value 即可
+            values:
+            - antarctica-east1 # 匹配的 value
+            - antarctica-west1 # 匹配的 value
+      preferredDuringSchedulingIgnoredDuringExecution: # 节点尽量匹配下方配置
+      - weight: 1 # 权重[1,100]，按照匹配规则对所有节点累加权重，最终之和会加入优先级评分，优先级越高被调度的可能性越高
+        preference:
+          matchExpressions: # 匹配表达式
+          - key: another-node-label-key # label 的 key
+            operator: In # 匹配方式，满足一个即可 In NotIn Exists DoesNotExist Gt Lt 可以做到亲和力和反亲和力
+            values:
+            - another-node-label-value # 匹配的 value
+#      - weight: 20
+        ......
+```
+
+#### PodAffinity
+
+Pod 亲和力：将与指定 pod 亲和力相匹配的 pod 部署在同一节点。
+
+- PreferredDuringSchedulingIgnoredDuringExecution：尽量将应用部署在一块
+
+- RequiredDuringSchedulingIgnoredDuringExecution： 必须将应用部署在一块
+
+
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: with-pod-affinity
+spec:
+  affinity: # 亲和力配置
+    podAffinity: # pod 亲和力配置
+      requiredDuringSchedulingIgnoredDuringExecution: # 当前 pod 必须匹配到对应条件 pod 所在的 node 上
+      - labelSelector: # 标签选择器
+          matchExpressions: # 匹配表达式
+          - key: security # 匹配的 key
+            operator: In # 匹配方式
+            values: # 匹配其中的一个 value
+            - S1
+        topologyKey: topology.kubernetes.io/zone
+    podAntiAffinity: # pod 反亲和力配置
+      preferredDuringSchedulingIgnoredDuringExecution: # 尽量不要将当前节点部署到匹配下列参数的 pod 所在的 node 上
+      - weight: 100 # 权重
+        podAffinityTerm: # pod 亲和力配置条件
+          labelSelector: # 标签选择器
+            matchExpressions: # 匹配表达式
+            - key: security # 匹配的 key
+              operator: In # 匹配的方式
+              values:
+              - S2 # 匹配的 value
+          topologyKey: topology.kubernetes.io/zone
+  containers:
+  - name: with-pod-affinity
+    image: pause:2.0
+```
+
+
+
+## 身份认证与权限
+
+Kubernetes 中提供了良好的多租户认证管理机制，如 RBAC、ServiceAccount 还有各种策略等。
+
+通过该文件可以看到已经配置了 RBAC 访问控制`/usr/lib/systemd/system/kube-apiserver.service`
+
+### 认证
+
+所有 Kubernetes 集群有两类用户：由 Kubernetes 管理的Service Accounts （服务账户）和（Users Accounts） 普通账户。
+
+普通账户是假定被外部或独立服务管理的，由管理员分配 keys，用户像使用 Keystone 或 google 账号一样，被存储在包含 usernames 和 passwords 的 list 的文件里。
+
+需要注意：在 Kubernetes 中不能通过 API 调用将普通用户添加到集群中。
+
+- 普通帐户是针对（人）用户的，服务账户针对 Pod 进程。
+- 普通帐户是全局性。在集群所有namespaces中，名称具有惟一性。
+- 通常，群集的普通帐户可以与企业数据库同步，新的普通帐户创建需要特殊权限。服务账户创建目的是更轻量化，允许集群用户为特定任务创建服务账户。
+- 普通帐户和服务账户的审核注意事项不同。
+
+### 授权
+
+#### **Role**
+
+代表一个角色，会包含一组权限，没有拒绝规则，只是附加允许。它是 Namespace 级别的资源，只能作用于 Namespace 之内。
+
+```bash
+# 查看已有的角色信息
+kubectl get role -n ingress-nginx -oyaml
+```
+
+通过配置一个个apiGroup来组织各种资源的权限
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+  name: nginx-ingress
+  namespace: ingress-nginx
+roles:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - pods
+  - secrets
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resourceNames:
+  - ingress-controller-label-nginx
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+```
+
+#### **ClusterRole**
+
+功能与 Role 一样，区别是资源类型为**集群类型**(即集群中所有相应资源)，而 Role 只在 Namespace
+
+```bash
+# 查看某个集群角色的信息
+kubectl get clusterrole view -oyaml
+```
+
+有四个内置的ClusterRole
+
+1. cluster-admin；
+2. admin；
+3. edit；
+4. view
+
+其中cluster-admin是整个k8s中最高的权限角色
+
+#### RoleBinding
+
+Role 或 ClusterRole 只是用于制定权限集合，具体作用与什么对象上，需要使用 RoleBinding 来进行绑定。
+
+作用于 Namespace 内，可以将 Role 或 ClusterRole 绑定到 User、Group、Service Account 上。
+
+```bash
+# 查看 rolebinding 信息
+kubectl get rolebinding --all-namespaces
+
+# 查看指定 rolebinding 的配置信息
+kubectl get rolebinding <role_binding_name> --all-namespaces -oyaml
+```
+
+
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  ......
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name nginx-ingress-role
+subjects:
+- kind: ServiceAccount
+  name: nginx-ingress-serviceaccount
+  namespace: ingress-nginx
+```
+
+
+
+#### ClusterRoleBinding
+
+与 RoleBinding 相同，但是作用于集群之上，可以绑定到该集群下的任意 User、Group 或 Service Account
+
+
 
 
 
@@ -1467,3 +2272,4 @@ tolerations:
 | spec.nodeSelector                           | Object  | 定义 Node 的 label 过滤标签，以 key：value 格式指定          |
 | spec.imagePullSecrets                       | Object  | 定义 pull 镜像时使用 secret 名称，以 name：secretkey 格式指定 |
 | spec.hostNetwork                            | Boolean | 定义是否使用主机网络模式，默认值为 false。设置 true 表示使用宿主机网络，不使用 docker 网桥，同时设置了 true将无法在同一台宿主机上启动第二个副本 |
+|                                             |         |                                                              |

@@ -436,3 +436,32 @@ module.exports = {
 }
 ```
 
+### 在Docker中使用pnpm
+
+很多情况我们需要把BFF打包进docker镜像，这就需要把node_modules也放在这个容器里面，而pnpm是硬链接，所以不可能直接把外面的资源直接拷贝到容器里去，这样的话每次pnpm i都会消耗大量的时间。
+
+可以通过下面的方法节约构建的时间
+
+[pnpm fetch](https://pnpm.io/zh/cli/fetch)
+
+`pnpm fetch` 将通过提供仅从 lockfile 中下载包至虚拟存储中来完美地解决上述问题。只要 lockfile 没有改变，缓存就一直有效
+
+```dockerfile
+FROM node:14.21.3-slim
+
+WORKDIR /usr/src/app
+
+RUN npm i pnpm@7 -g
+
+COPY pnpm-lock.yaml ./
+COPY .npmrc ./
+
+RUN pnpm fetch --dev # 仅仅通过lock文件进行下载
+
+ADD . ./
+
+RUN pnpm i --offline --dev # 真正的install是离线的，不和registry有交互
+
+CMD pnpm serve
+```
+
