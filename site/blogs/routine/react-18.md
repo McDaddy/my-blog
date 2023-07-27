@@ -548,7 +548,59 @@ function reconcileChildrenArray(returnFiber, currentFirstFiber, newChildren) {
 }
 ```
 
+### 对单节点的处理
 
+单节点就是一个Fiber下面要创建的child对应的虚拟DOM是一个object，且不是一个数组
+
+![img](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/dan_jie_dian_diff_1678677255463-20230726141834644.png)
+
+#### key相同，类型相同
+
+如果只是属性不同，会在completeWork阶段对比属性差异进行更新
+
+**同时为了防止这个节点在上次渲染时是一个数组中的元素**，虽然节点可以复用，但这个节点是上一个渲染数组的某一个元素，所以必须把它**可能存在的后续节点都删除**，这一步在所有可复用节点的情况下都要操作，如下情况，container下面的child是个数组，同时里面有个key=B是可以复用的，所以当发现新渲染的是一个单节点时，就要把之前的A和C都删除
+
+```javascript
+return number === 0 ? (
+    <ul key="container" onClick={() => setNumber(number + 1)}>
+      <li key="A" id="A">A</li>
+      <li key="B" id="B">
+        B
+      </li>
+      <li key="C" id="C">C</li>
+    </ul>
+  ) : (
+    <ul key="container" onClick={() => setNumber(number + 1)}>
+      <li key="B" id="B2">
+        B2
+      </li>
+    </ul>
+  );
+```
+
+
+
+#### Key相同，类型不同
+
+1. 删除包括当前fiber在内的已经可能存在的sibling
+2. 根据新的虚拟dom节点创建一个新的Fiber，并把它的return设为原先的父节点
+
+
+
+#### key不同
+
+1. 把这个Fiber的父也就是它的return上加上一个`deletions`属性（数组），表示这个child需要被删除
+
+2. 用这个要被删除的child的可能存在的sibling去对比Key，如果Key相同（**复用**），走上面两条分支，这里return
+
+3. 根据新的虚拟dom节点创建一个新的Fiber，并把它的return设为原先的父节点
+
+4. 在commit阶段，对每个有`deletions`的节点，进行遍历删除
+
+   1. 这里的删除，必须从要被删除的节点向上找到最近的Host节点（非function/class组件），然后再删除
+   2. 在删除前，还要再遍历下要被删除的节点下面的儿子，如果有儿子则遍历先删除儿子。这样做的目的是让**所有**被删除的组件都能走到它的**unmount**生命周期函数
+
+   
 
 ## 合成事件
 
@@ -716,6 +768,13 @@ React其实维护了两套useReducer的逻辑，分别对应mount和update
 // 几个维护在全局的变量
 const { ReactCurrentDispatcher } = ReactSharedInternals; // 整个React全局维护一个ReactCurrentDispatcher
 let currentlyRenderingFiber = null;
+/**
+ * 一个hook有三个属性
+ *  memoizedState: 这个hook上次保留的state值，或者初始值,
+    queue: 这个hook上存在的待更新的update队列
+    next: 注册在这个hook后面的下一个hook,
+    同时当前Fiber的memoizedState就是指向此Fiber下的第一个hook
+ */
 let workInProgressHook = null; // 用来指代Hooks链表中的最后一位，用于在mount阶段组建链表
 let currentHook = null;
 
@@ -764,7 +823,7 @@ function FunctionComponent() {
 }
 ```
 
-当在执行`const children = Component(props)`这句话时，里面就会调用到`React.useReducer`，而此时这个useReducer就是在此之前去赋值的，每次调用一个useXXX都会生成一个新的hook对象，它的数据结构是这样
+当在执行`const children = Component(props)`这句话时，里面就会调用到`React.useReducer`，而此时这个useReducer就是在此之前去赋值的，每次调用一个useXXX都会生成一个**新的**hook对象，它的数据结构是这样
 
 ```javascript
 const hook = {
@@ -795,9 +854,9 @@ function mountReducer(reducer, initialArg) {
 
 #### dispatchReducerAction
 
-即触发action的函数。目标是每一次触发都新建一个update对象，然后把它**入队**到当前全局的queue里面去
+即触发action的函数。目标是每一次触发都新建一个update对象，然后把它**入队**到当前**全局**的queue里面去
 
-其中fiber和queue是在mount时就绑定的，运行时只会传入action
+其中fiber和queue是在mount时就绑定的(bind方法)，运行时只会传入action
 
 全局维护一个queue数组和一个queueIndex
 
@@ -805,9 +864,9 @@ function mountReducer(reducer, initialArg) {
 
 执行结束的结果就是
 
-`concurrentQueue = [fiber1,queue1,update1,fiber2,queue2,update2,fiber3,queue3,update3]`
+全局 `concurrentQueue = [fiber1,queue1,update1,fiber2,queue2,update2,fiber3,queue3,update3]`
 
-其中queue是对当个hook来说是共享的，即这里的queue1,queue2,queue3是**同一个对象**，假设后面还触发了一个useState的setState，那么queue4就是不同的队列了
+其中queue是对当个hook来说是共享的，即这里的queue1,queue2,queue3是**同一个对象**(这里的fiber1/2/3也是同一个对象)，假设后面还触发了一个useState的setState，那么queue4就是不同的队列queue了
 
 concurrentQueue的使命就是在一个渲染周期里收集所有的更新动作
 
@@ -845,7 +904,7 @@ function enqueueConcurrentHookUpdate(fiber, queue, update) {
 
 即在非挂载阶段执行的useReducer的函数体。
 
-经过上面的dispatchReducerAction操作，最后会**通知React从root开始更新**。此时再次执行`React.useReducer(counter, 0)`时（此时还是beginWork阶段），就是需要把之前触发的action累计计算出新的state来渲染
+经过上面的dispatchReducerAction操作，最后会**通知React从root开始更新**。此时再次执行`React.useReducer(counter, 0)`时（此时还是beginWork阶段），就是需要把之前触发的action**累计计算出**新的state来渲染
 
 在beginWork阶段前会**先做一步**，把刚才存储的**concurrentQueue**拿出来组建更新队列，这步会把concurrentQueue按三位一组取出，
 
@@ -879,3 +938,88 @@ function updateReducer(reducer) {
 }
 ```
 
+最后`hook.memoizedState`就是把这次渲染内所有queue上累积的update汇总后的结果。 然后把结果渲染到函数组件中
+
+### useState
+
+useState其实就是一个套壳的useReducer
+
+我们在useState中内置了一个reducer，action可以接受方法或者值
+
+```javascript
+function baseStateReducer(state, action) {
+  return typeof action === "function" ? action(state) : action;
+}
+```
+
+#### moutState
+
+和useReducer基本一样，主要步骤就是
+
+1. 新建一个hook，然后从老的fiber的memoizedState中找到对应的老hook，所以React强调了hooks的顺序必须前后一致，不然新老fiber的memoizedState就找不到对应的hook了
+2. 给hook加一个空的queue， 但结构和useReducer不同
+
+```javascript
+// useReducer
+hook.queue = {
+  pending: null,
+}; 
+// useState
+const queue = {
+  pending: null,
+  dispatch: null,
+  lastRenderedReducer: baseStateReducer, //上一个reducer
+  lastRenderedState: initialState, //上一个state
+};
+```
+
+3. 最后生成这个dispatcher
+
+```javascript
+function dispatchSetState(fiber, queue, action) {
+  const update = {
+    action,
+    hasEagerState: false, //是否有急切的更新
+    eagerState: null, //急切的更新状态
+    next: null,
+  };
+  //当你派发动作后，我立刻用上一次的状态和上一次的reducer计算新状态
+  const { lastRenderedReducer, lastRenderedState } = queue;
+  const eagerState = lastRenderedReducer(lastRenderedState, action);
+  update.hasEagerState = true;
+  update.eagerState = eagerState;
+  if (Object.is(eagerState, lastRenderedState)) {
+    // 针对对象state，如果只是在原对象上改了属性，然后setState，是不会立即触发更新的，只有新对象才会立即触发更新
+    return;
+  }
+  //下面是真正的入队更新，并调度更新逻辑
+  const root = enqueueConcurrentHookUpdate(fiber, queue, update);
+  scheduleUpdateOnFiber(root);
+}
+```
+
+当时setState触发，会取出lastRenderedState和lastRenderedReducer，然后计算出最新的state，剩下逻辑和useReducer一样
+
+#### updateState
+
+直接复用updateReducer
+
+```javascript
+function updateState() {
+  return updateReducer(baseStateReducer);
+}
+```
+
+### 简单描述Hooks原理
+
+1. Hooks是每个Fiber上的一个属性，放在memoizedState上
+2. Hooks是一个链表结构，后一个hook是前一个的next属性
+3. 一个hook上有三个属性
+   1.  memoizedState：上次渲染后的hook状态或者是初始值
+   2.  queue:  单个hook上的更新队列，比如在一个渲染周期中触发了N次setState操作，那就会放在这个queue上
+   3.  next: 下一个hook或null
+4. 每次页面update，都会通过老的hook来创建新的hook，所以hook在链表中的位置必须固定，不然创建出来的新hook就和老的无法对应
+5. 通过触发setState或Reducer操作，会触发重新渲染，在新的一轮渲染中，会做以下几件事
+   1. 把每个hook中的queue里的update整合起来，最终合并计算出一个最终的state，这就是为什么连续触发`setState(num+1)`最终结果只是加1的原因，在一次渲染计算中num始终是不变的
+   2. 把上面的结果更新到hook的memoizedState上，这个结果也会作为state反馈到页面上
+   3. 重置hook，即下次渲染又会从第一个hook开始做计算
