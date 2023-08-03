@@ -600,7 +600,79 @@ return number === 0 ? (
    1. 这里的删除，必须从要被删除的节点向上找到最近的Host节点（非function/class组件），然后再删除
    2. 在删除前，还要再遍历下要被删除的节点下面的儿子，如果有儿子则遍历先删除儿子。这样做的目的是让**所有**被删除的组件都能走到它的**unmount**生命周期函数
 
-   
+
+
+
+### 多节点DIff
+
+就是不论上次渲染时单节点还是数组，当前这次新的虚拟DOM是数组
+
+- 多节点DOM DIFF 的三个规则
+
+  - 只对同级元素进行比较，不同层级不对比
+  - 不同的类型对应不同的元素（不能复用）
+  - 可以通过 key 来标识同一个节点
+
+  主要有三轮遍历可能
+
+- 第 1 轮遍历
+
+  - 如果 key 不同则直接结束本轮循环
+  - newChildren 或 oldFiber 遍历完，结束本轮循环
+  - key 相同而 type 不同，标记老的 oldFiber 为删除，继续循环
+  - key 相同而 type 也相同，则可以复用老节 oldFiber 节点，继续循环
+
+- 第 2 轮遍历
+
+  - newChildren 遍历完而 oldFiber 还有，遍历剩下所有的 oldFiber 标记为删除，DIFF 结束
+  - oldFiber 遍历完了，而 newChildren 还有，将剩下的 newChildren 标记为插入，DIFF 结束
+  - newChildren 和 oldFiber 都同时遍历完成，diff 结束
+  - newChildren 和 oldFiber 都没有完成，则进行`节点移动`的逻辑
+
+- 第 3 轮遍历
+
+  - 处理节点移动的情况
+
+#### 节点移动
+
+前两轮可以**总结**为
+
+前后两个数组，从头部开始一一对比，只要key是相同的，就继续对比下一个，直到某一方没有元素了或者key对不上了
+
+1. 如果老的先结束，那么后面就直接添加剩下的新虚拟DOM节点
+2. 如果新的先结束，那么就把剩下的老Fiber都标记为删除
+3. key对不上了开始移动节点逻辑
+
+![image-20230801171324088](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230801171324088.png)
+
+移动节点也是一个循环，从第一个对不上key的位置开始，从上图看就是从数组的第1位开始
+
+1. 把B到F这些老的fiber，用k-v的形式添加到一个**map**中，k就是key，v就是fiber
+2. 声明一个lastPlacedIndex，值为0，即最后能对上key的数组位置
+3. 从C开始循环新的虚拟DOM数组，发现C和E都在这个map中能找到相同key的老fiber节点，就通过老的fiber节点创建一个新的fiber节点，然后成为A的sibling。此时lastPlacedIndex指向4，即最后一个排列好的可复用的老fiber节点在老数组中的位置
+4. 循环到B，发现能找到可复用的老fiber，但是它在老数组的index是1，小于lastPlacedIndex4，这种情况就无法直接把B放在E后面（ACE可以直接放因为在DOM结构里面他们本来就是顺序的，只需要把不需要的DOM删除，就能保持这个结构），需要进行**节点移动**，此时B节点就要打上一个**Placement**的flag标志它需要移动（React中没有移动操作flag，移动就是插入，在插入时用`dom.insertBefore(child,beforeChild)`来实现DOM节点的移动）
+5. 循环到G，在map中找不到老fiber，直接创建一个新的fiber并成为B的sibling
+6. D同B，以上每次找到可复用的老fiber都会同时把它从map中删除，当遍历完新数组后，map中剩下的元素就是要删除的节点，这里就是F
+
+
+
+### 从DOM-DIFF到页面更新
+
+以上所有DOM-DIFF的操作，**最终的成果**就是把所有的更新体现在fiber链表中
+
+- 新增的节点，fiber打上**Placement**的flag
+- 删除的节点，在被删除节点的父fiber上会添加上deletions的数组，并打上**ChildDeletion**的flag
+- 移动的节点，和新增一样
+
+在completeWork阶段
+
+- 会对新fiber的props和老fiber的memorizedProps做一个diff，如果发现有变化，就会在fiber上打上**Update**的flag。同时把需要更新的内容放在fiber的updateQueue属性上
+
+在commitWork阶段
+
+- 得到当前fiber，根据flag做相应操作，对真实DOM进行增删改
+
+
 
 ## 合成事件
 
@@ -1009,6 +1081,115 @@ function updateState() {
   return updateReducer(baseStateReducer);
 }
 ```
+
+
+
+### useEffect
+
+开始前先明确下useEffect和useLayoutEffect的区别，以下是网络答案
+
+> `useEffect` 和 `useLayoutEffect` 都是 React 中的 Hook，它们的作用都是在组件渲染后执行一些副作用操作。它们的区别在于执行的时间和方式。
+>
+> `useEffect` 会在渲染完成后异步执行，也就是说它不会阻塞渲染过程。它的回调函数会在浏览器绘制完成后调用，因此它适用于大多数情况下。
+>
+> 而 `useLayoutEffect` 会在渲染后同步执行，也就是说它会阻塞渲染过程。它的回调函数会在浏览器绘制之前调用，因此它适用于需要在浏览器绘制之前同步更新 DOM 的情况。
+
+总结一下
+
+- useEffect是异步的，它是在渲染完成之后下一个宏任务（requestIdleCallback）才执行的
+- useLayoutEffect是同步的，什么意思呢？ 比如React在commit中改变了真实DOM， `div.style.color='red'`，这句话执行了之后，**仅仅是DOM被修改了，但此时浏览器还并没有渲染**。此时我是可以通过DOM直接查询到将要渲染的结果的DOM的准确数据的，所以此时同步获取DOM是可以避免一些问题的，
+  - 假设我需要获取DOM的top属性，如果是在useEffect中获取，那如果渲染的过程中发生scroll了，top值就变了，这种不确定性就可能带来计算错误。如果假设你是想要同步得更新DOM的话，就会被异步发生的DOM改变给打的措手不及
+  - 另外Chrome浏览器的debugger是**不会阻塞渲染**的，即把断点打在`div.style.color='red'`这行代码之后，可以看到页面已经变化了，虽然主线程代码停止了。 这里可以使用`alert()`api来替代，当使用alert时，渲染会阻塞。用这个方法可以证明useLayoutEffect是在渲染之前执行的
+  - 基于上面我们知道useLayoutEffect是在渲染前同步执行的，所以它不能做太多耗时的操作，否则就会让页面变卡
+
+
+
+
+
+有两个Fiber新的Tag（类同前面的Placement、ChildDeletion等）
+
+- Passive： 表示普通的Effect，即告诉调度器，在本次渲染结束后要触发一个异步的任务(requestIdleCallback)来执行useEffect里面的函数
+
+- Layout: 等同Update
+
+
+
+同时还引入了一个Effect Tag的概念，用来区别effect的类型和需不需要执行
+
+- HasEffect: 有这个flag才需要执行effect，否则就不需要执行（比如前后deps一样）
+- Passive：表示*会在UI绘制后执行，类似于宏任务*，用于useEffect
+- Layout：表示*积极的，会在UI绘制前之前，类似于微任务*
+
+
+
+#### mountEffect
+
+1. 创建hook，这步和useState一样
+2. 对当前fiber打上一个`Passive`的标签，表示这个fiber上有useEffect
+3. 构建这个hook的memoizedState，这里和useState的结构不同，它里面主要包括
+   1. tag: effect的标签（HasEffect + Passive）
+   2. create: 就是useEffect里面的回调函数
+   3. destroy：销毁方法，这个方法在mount时是不存在的，因为还没执行create
+   4. deps：依赖数组
+   5. next：当前Fiber的下一个effect
+
+
+
+![image-20230802212836170](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230802212836170.png)
+
+上图表示了：
+
+- 当前fiber的memoizedState，其实就是它下面的hooks链表，里面可以包含useEffect和useState和其他各种hook
+- 当存在useEffect时，fiber会被打上Passive的flag
+- fiber的**updateQueue**，其实就是之前useState用来更新状态的updateQueue，里面有个新属性叫`lastEffect`，指向最后一个effect，其实就是一个effect链表
+- 每个useEffect hook的memoizedState都指向上面这个effect链表中的对应的那个effect
+
+
+
+#### commitRoot
+
+commitRoot是一次Workloop结束后，要commit到真实DOM的步骤，这里会先判断整个Fiber链上是否有包含Passive这个flag，如果有那就通过requestIdleCallback，schedule在渲染之后执行副作用，即`flushPassiveEffect`
+
+```javascript
+function flushPassiveEffect() {
+  if (rootWithPendingPassiveEffects !== null) {
+    const root = rootWithPendingPassiveEffects;
+    //执行卸载副作用，destroy
+    
+    commitPassiveUnmountEffects(root.current);
+    //执行挂载副作用 create
+    commitPassiveMountEffects(root, root.current);
+  }
+}
+```
+
+在执行副作用时，会先执行umount副作用，后执行mount副作用
+
+但是unmount函数是通过mount（create）函数return产生的， 所以当首次执行时，`commitPassiveUnmountEffects`不会产生任何作用。
+
+在执行`commitPassiveMountEffects`时，做了以下的步骤
+
+1. 从根Fiber开始递归向下，找到如果就Passive的fiber就执行它的副作用，**即Effect都是先执行子，后执行父**
+2. 执行副作用时，取出fiber的updateQueue中的lastEffect，通过next拿到第一个effect，然后顺序执行链表，执行create函数得到destory函数，并赋值到effect对象上，供下次使用
+3. 在执行create前会判断effect的Tag是否有**HasEffect**这个tag，否则不执行。这里涉及到更新时deps的对比，如果相同就不会有这个tag。 首次渲染的话是必然会执行的
+
+#### updateEffect
+
+和mountEffect几乎一样，主要区别是有一个对比deps的过程，如果deps前后一样，那么就不会放**HasEffect**这个Tag，这样下次在commitRoot阶段遍历到这个effect的时候，就会跳过执行
+
+
+
+### useLayoutEffect
+
+mount和update逻辑和useEffect几乎没差，只是用了不同flag而已。核心区别是在执行时机
+
+useLayoutEffect的unmout函数会在commit函数组件时执行，此时连dom都没修改完，只是这个函数组件完成了修改（一轮workloop或者卸载）
+
+mount（create）函数会在完成commit后，**立刻执行，此时只是改变了dom，但浏览器还没渲染**
+
+
+
+
 
 ### 简单描述Hooks原理
 
