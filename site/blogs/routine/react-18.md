@@ -1204,3 +1204,147 @@ mount（create）函数会在完成commit后，**立刻执行，此时只是改�
    1. 把每个hook中的queue里的update整合起来，最终合并计算出一个最终的state，这就是为什么连续触发`setState(num+1)`最终结果只是加1的原因，在一次渲染计算中num始终是不变的
    2. 把上面的结果更新到hook的memoizedState上，这个结果也会作为state反馈到页面上
    3. 重置hook，即下次渲染又会从第一个hook开始做计算
+
+
+
+## 任务队列
+
+我们知道React Fiber的一大特性就是reconcile过程是**可打断可恢复**的。那么为什么需要打断呢？无非是两种情况
+
+1. 页面要进行布局绘制等操作了，因为js主线程与渲染进程互斥的关系，如果占着js主线程时间过长，肯定会影响渲染，使得页面卡顿（比如页面其实没有什么变化，但是用户在滚动页面或者resize页面，这个时候如果绘制不及时，页面就会感觉很卡）
+2. 有用户的操作，比如点击、输入等，如果用户的点击操作，在体感上得不到反馈，那肯定是糟糕的体验，所以用户操作的优先级肯定比普通渲染来得高，可以打断前面的reconcile过程
+
+所以React为各种任务设置了优先级
+
+```javascript
+// Times out immediately 立刻过期 -1
+var IMMEDIATE_PRIORITY_TIMEOUT = -1;
+// Eventually times out 250毫秒
+var USER_BLOCKING_PRIORITY_TIMEOUT = 250;
+// 正常优先级的过期时间 5秒
+var NORMAL_PRIORITY_TIMEOUT = 5000;
+// 低优先级过期时间 10秒
+var LOW_PRIORITY_TIMEOUT = 10000;
+// Never times out 永远不过期
+var IDLE_PRIORITY_TIMEOUT = maxSigned31BitInt;
+```
+
+每种任务在加入任务队列前都会设置自身的过期时间（**当前时间 + 最大过期时间**）。而进入队列就是一个加入**最小堆**的过程。通过最小堆，每次从堆顶拿到的都是过期时间最小的任务。利用最小堆，既节省空间(数组存放)又有良好的复杂度(O(1))
+
+```javascript
+export function push(heap, node) {
+  const index = heap.length;
+  heap.push(node);
+  siftUp(heap, node, index);
+}
+export function peek(heap) {
+  return heap.length === 0 ? null : heap[0];
+}
+export function pop(heap) {
+  if (heap.length === 0) {
+    return null;
+  }
+  const first = heap[0];
+  const last = heap.pop();
+  if (last !== first) {
+    heap[0] = last;
+    siftDown(heap, last, 0);
+  }
+  return first;
+}
+function siftUp(heap, node, i) {
+  let index = i;
+  while (index > 0) {
+    const parentIndex = (index - 1) >>> 1;
+    const parent = heap[parentIndex];
+    if (compare(parent, node) > 0) {
+      heap[parentIndex] = node;
+      heap[index] = parent;
+      index = parentIndex;
+    } else {
+      return;
+    }
+  }
+}
+function siftDown(heap, node, i) {
+  let index = i;
+  const length = heap.length;
+  const halfLength = length >>> 1;
+  while (index < halfLength) {
+    const leftIndex = (index + 1) * 2 - 1;
+    const left = heap[leftIndex];
+    const rightIndex = leftIndex + 1;
+    const right = heap[rightIndex];
+    if (compare(left, node) < 0) {
+      if (rightIndex < length && compare(right, left) < 0) {
+        heap[index] = right;
+        heap[rightIndex] = node;
+        index = rightIndex;
+      } else {
+        heap[index] = left;
+        heap[leftIndex] = node;
+        index = leftIndex;
+      }
+    } else if (rightIndex < length && compare(right, node) < 0) {
+      heap[index] = right;
+      heap[rightIndex] = node;
+      index = rightIndex;
+    } else {
+      return;
+    }
+  }
+}
+function compare(a, b) {
+  const diff = a.sortIndex - b.sortIndex;
+  return diff !== 0 ? diff : a.id - b.id;
+}
+```
+
+
+
+## MessageChannel替代requestIdleCallback
+
+因为目前 `requestIdleCallback` 目前只有Chrome支持，所以React就利用MessageChannel来模拟requestIdleCallback。而requestIdleCallback的核心目的就是**把回调延迟到绘制操作之后执行**
+
+MessageChannel的回调执行是一个宏任务，下面示例代码中的onmessage回调执行，都是在主线程执行完后的下一个宏任务执行
+
+```javascript
+var channel = new MessageChannel();
+var port1 = channel.port1;
+var port2 = channel.port2
+port1.onmessage = function(event) {
+  // 我们在这里执行React的reconcile任务
+    console.log("port1收到来自port2的数据：" + event.data);
+}
+port2.onmessage = function(event) {
+    console.log("port2收到来自port1的数据：" + event.data);
+}
+port1.postMessage("发送给port2");
+port2.postMessage("发送给port1");
+```
+
+
+
+![image-20230803202413061](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230803202413061.png)
+
+其实MessageChannel和setTimeout差距不大，只是MessageChannel**回调**执行时机比定时器回调稍微更早一些，实际中用setTimeout效果其实应该也没差
+
+React会在每一帧申请5ms的执行时间，所以上图的红色部分就是React申请的时间片，如果执行时间不到5ms且任务没有执行完，就会一直执行reconciler阶段的工作单元WorkUnit。否则的话就会放弃线程，让给浏览器做剩下的布局绘制等操作，确保页面没有卡顿
+
+这里的`5ms - 任务实际执行时间`就可以理解为requestIdleCallback里的`deadline.timeRemaining()`
+
+整个流程大致如下
+
+1. 发起任务，比如在Workloop中发起更新或者需要执行副作用。`scheduleCallback(priority, callback)`，设置优先级和申请到时间片后执行的回调callback
+2. 在`scheduleCallback`中根据参数创建一个新的task，然后放进上面的**最小堆队列**中，最后调用**requestHostCallback**即用**port2**向port1发送一个空消息
+3. **port1**的onmessage回调即**performWorkUntilDeadline**会在下一帧被调用，然后开始执行一个工作单元
+4. 这个工作单元主要有以下步骤
+   1. **while循环**从taskQueue里面取出当前优先级最高的任务，并计算到期时间
+   2. 如果任务还未过期，但时间片到期了，则跳出while循环
+   3. 如果时间片没有到期 **或者** 任务已经到期，取出第一步传入的回调开始执行，结束执行后，这个任务出队
+   4. 当第二步跳出循环后，判断当前还有没有未完成的任务，如果有则返回`hasMoreWork`为true，否则false
+5. 回到第三步的performWorkUntilDeadline，得到返回的hasMoreWork，如果为true，那就会再次用port2去发消息，告诉浏览器，下一帧再给我5ms，我还有工作要继续做。 然后下一帧又回到第四步从taskQueue里取任务执行。如果往复直到把taskQueue清空为止
+
+
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230804150904015.png" alt="image-20230804150904015" style="zoom:50%;" />
