@@ -1214,7 +1214,7 @@ mount（create）函数会在完成commit后，**立刻执行，此时只是改�
 1. 页面要进行布局绘制等操作了，因为js主线程与渲染进程互斥的关系，如果占着js主线程时间过长，肯定会影响渲染，使得页面卡顿（比如页面其实没有什么变化，但是用户在滚动页面或者resize页面，这个时候如果绘制不及时，页面就会感觉很卡）
 2. 有用户的操作，比如点击、输入等，如果用户的点击操作，在体感上得不到反馈，那肯定是糟糕的体验，所以用户操作的优先级肯定比普通渲染来得高，可以打断前面的reconcile过程
 
-所以React为各种任务设置了优先级
+所以React为各种任务优先级设置了不同的任务过期时间
 
 ```javascript
 // Times out immediately 立刻过期 -1
@@ -1348,3 +1348,139 @@ React会在每一帧申请5ms的执行时间，所以上图的红色部分就是
 
 
 <img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/image-20230804150904015.png" alt="image-20230804150904015" style="zoom:50%;" />
+
+## Lane
+
+- React中用lane(车道)模型来表示任务优先级
+- 一共有31条优先级，数字越小优先级越高，某些车道的优先级相同
+
+![img](https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/che_dao_1645080741671.jpg)
+
+其中有几个主要的车道
+
+```javascript
+export const TotalLanes = 31;
+export const NoLanes = 0b0000000000000000000000000000000; // 表示没上车道
+export const NoLane = 0b0000000000000000000000000000000;
+export const SyncLane = 0b0000000000000000000000000000001; // 同步车道 优先级最高
+export const InputContinuousHydrationLane = 0b0000000000000000000000000000010; 
+export const InputContinuousLane = 0b0000000000000000000000000000100; // 用户输入的车道
+export const DefaultHydrationLane = 0b0000000000000000000000000001000;  
+export const DefaultLane = 0b0000000000000000000000000010000;  // 默认车道
+export const SelectiveHydrationLane = 0b0001000000000000000000000000000;
+export const IdleHydrationLane = 0b0010000000000000000000000000000;
+export const IdleLane = 0b0100000000000000000000000000000;  // 空闲时的车道
+export const OffscreenLane = 0b1000000000000000000000000000000; // 离屏的车道
+const NonIdleLanes = 0b0001111111111111111111111111111; // 比空闲优先级高的车道集合
+```
+
+
+
+#### 事件优先级
+
+React会根据触发事件的类型来分配对应的优先级，比如click事件就是离散的输入事件优先级，拖拽就是连续事件优先级
+
+同时各个事件优先级又和车道一一对应，比如离散输入事件优先级对应同步车道
+
+```javascript
+  //离散事件优先级 click onchange
+  export const DiscreteEventPriority = SyncLane;//1
+  //连续事件的优先级 mousemove 
+  export const ContinuousEventPriority = InputContinuousLane;//4
+  //默认事件车道
+  export const DefaultEventPriority = DefaultLane;//16 
+  //空闲事件优先级 
+  export const IdleEventPriority = IdleLane;//
+
+/**
+ * 获取事件优先级
+ * @param {*} domEventName 事件的名称  click
+ */
+export function getEventPriority(domEventName) {
+  switch (domEventName) {
+    case "click":
+      return DiscreteEventPriority;
+    case "drag":
+      return ContinuousEventPriority;
+    default:
+      return DefaultEventPriority;
+  }
+}
+```
+
+
+
+### 调度优先级
+
+Schedule Priority，即作用在任务队列上的优先级。 上面在任务队列提到每个优先级都有一个过期时间。
+
+事件优先级最终都要映射到调度优先级上，比如离散事件优先级对应`ImmediateSchedulerPriority`，而ImmediateSchedulerPriority的过期时间是`-1`，即这个任务一旦进入队列就会立即被执行，不会等待
+
+这里5种事件优先级可以直接映射到4种调度优先级上
+
+```javascript
+switch (lanesToEventPriority(nextLanes)) {
+    case DiscreteEventPriority:
+      schedulerPriorityLevel = ImmediateSchedulerPriority;
+      break;
+    case ContinuousEventPriority:
+      schedulerPriorityLevel = UserBlockingSchedulerPriority;
+      break;
+    case DefaultEventPriority:
+      schedulerPriorityLevel = NormalSchedulerPriority;
+      break;
+    case IdleEventPriority:
+      schedulerPriorityLevel = IdleSchedulerPriority;
+      break;
+    default:
+      schedulerPriorityLevel = NormalSchedulerPriority;
+      break;
+  }
+```
+
+>  为什么要有三种优先级概念
+
+因为车道总共有31条，非常得细分，而最终映射到的调度优先级只有4种优先级，所以要怎么把31条车道**收敛**到4种调度优先级上就是个问题。
+
+解决策略就是，取出lane和事件优先级对比，如果lane的值更小，那么就对应这个优先级，否则和下一级的优先级对比
+
+比如当前的lane值是8
+
+1. 和DiscreteEventPriority（1）比，它更大，不匹配
+2. 和ContinuousEventPriority（4）比，它更大，不匹配
+3. 和非空闲（非常大的数字）集合的优先级比，它小，所以它就是默认事件优先级
+4. 如果比空闲的优先级数字还大，那就是空闲优先级
+
+```javascript
+export function lanesToEventPriority(lanes) {
+  //获取最高优先级的lane
+  let lane = getHighestPriorityLane(lanes);
+  //如果
+  if (!isHigherEventPriority(DiscreteEventPriority, lane)) {
+    return DiscreteEventPriority;//1
+  }
+  if (!isHigherEventPriority(ContinuousEventPriority, lane)) {
+    return ContinuousEventPriority;//4
+  }
+  if (includesNonIdleWork(lane)) {
+    return DefaultEventPriority;//16
+  }
+  return IdleEventPriority;//
+}
+```
+
+
+
+
+
+#### 渲染流程
+
+<img src="https://kuimo-markdown-pic.oss-cn-hangzhou.aliyuncs.com/scheduleUpdateOnFiber1_1667713205987.jpg" alt="img" style="zoom:67%;" />
+
+每次触发渲染，会判断当前的lane是什么，比如初次渲染就是DefaultLane
+
+- 如果是SyncLane，那就不会schedule callback来申请下一个时间片去执行渲染，而是直接同步开始render
+- 否则就要判断下是否需要申请时间片  TODO
+
+
+
